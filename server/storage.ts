@@ -188,7 +188,6 @@ export interface IStorage {
   // Expedientes Sujetos - Datos del caso por persona
   createExpedienteSujeto(data: InsertExpedienteSujeto): Promise<ExpedienteSujeto>;
   getExpedientesSujetosByPersonaId(personaId: number): Promise<ExpedienteSujeto[]>;
-  getExpedienteSujetoByNumero(numero: string): Promise<ExpedienteSujeto | undefined>;
   getExpedienteSujetoById(id: number): Promise<ExpedienteSujeto | undefined>;
   updateExpedienteSujeto(id: number, data: Partial<InsertExpedienteSujeto>): Promise<ExpedienteSujeto | undefined>;
   deleteExpedienteSujeto(id: number): Promise<boolean>;
@@ -212,7 +211,7 @@ export interface IStorage {
     limit?: number;
   }): Promise<{ registros: RegistroComunicacion[]; total: number }>;
   getRegistroComunicacionById(registroId: number): Promise<RegistroComunicacion | undefined>;
-  getRegistrosComunicacionByAbonado(abonado: string, expedienteSujetoId?: number): Promise<RegistroComunicacion[]>;
+  getRegistrosComunicacionByAbonado(abonado: string, experticiaId: number): Promise<RegistroComunicacion[]>;
   getRegistrosComunicacionByTelefonoIds(telefonoIds: number[]): Promise<RegistroComunicacion[]>;
   createRegistroComunicacion(registro: InsertRegistroComunicacion): Promise<RegistroComunicacion>;
   createRegistrosComunicacionBulk(registros: InsertRegistroComunicacion[]): Promise<void>;
@@ -1447,16 +1446,6 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(expedientesSujetos).where(eq(expedientesSujetos.personaId, personaId));
   }
 
-  async getExpedienteSujetoByNumero(numero: string): Promise<ExpedienteSujeto | undefined> {
-    const [exp] = await db
-      .select()
-      .from(expedientesSujetos)
-      .where(eq(expedientesSujetos.telefonoCaso, numero))
-      .orderBy(desc(expedientesSujetos.createdAt))
-      .limit(1);
-    return exp || undefined;
-  }
-
   async getExpedienteSujetoById(id: number): Promise<ExpedienteSujeto | undefined> {
     const [row] = await db.select().from(expedientesSujetos).where(eq(expedientesSujetos.id, id));
     return row || undefined;
@@ -1529,18 +1518,31 @@ export class DatabaseStorage implements IStorage {
     return registro || undefined;
   }
 
-  async getRegistrosComunicacionByAbonado(abonado: string, expedienteSujetoId?: number): Promise<RegistroComunicacion[]> {
-    const conditions: any[] = [eq(registrosComunicacion.abonadoA, abonado)];
-    if (expedienteSujetoId) {
-      conditions.push(eq(registrosComunicacion.expedienteSujetoId, expedienteSujetoId));
-    }
-    return await db
-      .select()
-      .from(registrosComunicacion)
-      .where(and(...conditions))
-      .orderBy(desc(registrosComunicacion.fecha));
+  // En storage.ts
+async getRegistrosComunicacionByAbonado(abonado: string, experticiaId: number): Promise<RegistroComunicacion[]> {
+  const [telRecord] = await db
+    .select({ id: personaTelefonos.id })
+    .from(personaTelefonos)
+    .where(eq(personaTelefonos.numero, abonado));
+
+  if (!telRecord) return [];
+
+  // Iniciamos las condiciones con el ID del teléfono
+  let conditions: any[] = [eq(registrosComunicacion.abonadoAId, telRecord.id)];
+  
+  // Si nos pasan el ID de la experticia, lo añadimos como filtro obligatorio
+  if (experticiaId) {
+    // ATENCIÓN: Reemplaza "experticiaId" por el nombre exacto de la columna 
+    // que usas en tu schema para vincular el registro con el caso/expediente.
+    conditions.push(eq(registrosComunicacion.experticiaId, experticiaId)); 
   }
 
+  return await db
+    .select()
+    .from(registrosComunicacion)
+    .where(and(...conditions))
+    .orderBy(desc(registrosComunicacion.fecha));
+}
   async getRegistrosComunicacionByTelefonoIds(telefonoIds: number[]): Promise<RegistroComunicacion[]> {
     if (telefonoIds.length === 0) return [];
 

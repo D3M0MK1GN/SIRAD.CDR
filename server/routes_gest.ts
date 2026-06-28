@@ -966,10 +966,6 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
             }
             const abonadoAId = telAnalizado.id;
 
-            // Buscar el expediente sujeto correspondiente a este número
-            const expSujeto = await storage.getExpedienteSujetoByNumero(numero);
-            const expSujetoId = expSujeto?.id ?? null;
-
             // Mapear cada fila al formato de registros_comunicacion
             const filasMapeadas = datosCrudos
               .map((row: any) => {
@@ -977,7 +973,6 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
                 mapped.experticiaId = experticia.id;
                 mapped.abonadoAId = abonadoAId;
                 mapped.abonadoBId = null; // interlocutor no se cataloga
-                mapped.expedienteSujetoId = expSujetoId;
                 return mapped;
               })
               .filter((r: any) => r.abonadoA?.trim());

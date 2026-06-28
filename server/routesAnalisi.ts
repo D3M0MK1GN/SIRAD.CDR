@@ -780,20 +780,24 @@ export function registerAnalisisRoutes(
   // ── Análisis de traza desde BD → Python ──────────────────────────────────
 
   app.get("/api/analisis-traza/:numero", authenticateToken, async (req: any, res) => {
-    try {
-      const { numero } = req.params;
+  try {
+    const { numero } = req.params;
+    // Capturamos el experticiaId de la URL (query)
+    const experticiaId = req.query.experticiaId ? parseInt(req.query.experticiaId as string) : undefined;
 
-      // 1. Obtener registros desde la BD (igual que "Ver Registros")
-      const registros = await storage.getRegistrosComunicacionByAbonado(numero);
+    // Pasamos el experticiaId para que Python solo reciba los de ese caso
+    const registros = await storage.getRegistrosComunicacionByAbonado(numero, experticiaId);
 
-      if (!registros || registros.length === 0) {
-        return res.json({
-          contactosFrecuentes: [],
-          imeis: [],
-          georref: [],
-          totalComunicaciones: 0,
-        });
-      }
+    if (!registros || registros.length === 0) {
+      return res.json({
+        contactosFrecuentes: [],
+        imeis: [],
+        georref: [],
+        totalComunicaciones: 0,
+      });
+    }
+
+    // ... (el resto del código con la petición fetch a Python se mantiene igual)
 
       // 2. Enviar registros al Python FastAPI para análisis
       const pythonUrl = "http://localhost:8001/analizar-registros-db";
@@ -987,17 +991,18 @@ export function registerAnalisisRoutes(
   });
 
   app.get("/api/registros-comunicacion/abonado/:abonado", authenticateToken, async (req: any, res) => {
-    try {
-      const { abonado } = req.params;
-      const expedienteSujetoId = req.query.expedienteSujetoId
-        ? parseInt(req.query.expedienteSujetoId as string)
-        : undefined;
-      const registros = await storage.getRegistrosComunicacionByAbonado(abonado, expedienteSujetoId);
-      res.json(registros);
-    } catch (error: any) {
-      res.status(500).json({ message: "Error al obtener registros de comunicación" });
-    }
-  });
+  try {
+    const { abonado } = req.params;
+    // Capturamos el experticiaId de la URL (query)
+    const experticiaId = req.query.experticiaId ? parseInt(req.query.experticiaId as string) : undefined;
+    
+    // Lo pasamos a la función
+    const registros = await storage.getRegistrosComunicacionByAbonado(abonado, experticiaId);
+    res.json(registros);
+  } catch (error: any) {
+    res.status(500).json({ message: "Error al obtener registros de comunicación" });
+  }
+});
 
   app.get("/api/registros-comunicacion/:registroId", authenticateToken, async (req: any, res) => {
     try {
@@ -1179,16 +1184,11 @@ export function registerAnalisisRoutes(
           numerosTelefonoMap.set(numero, telefono.id);
         }
 
-        const expSujetoId = req.body.expedienteSujetoId
-          ? parseInt(req.body.expedienteSujetoId)
-          : null;
-
         const registrosConIds = registrosParaImportar.map((r) => ({
           ...r,
           abonadoAId: r.abonadoA ? numerosTelefonoMap.get(r.abonadoA.trim()) || null : null,
           abonadoBId: r.abonadoB ? numerosTelefonoMap.get(r.abonadoB.trim()) || null : null,
           time: r.time || null,
-          expedienteSujetoId: expSujetoId,
         }));
 
         const newRegistros = await storage.createRegistrosComunicacionBulk(registrosConIds);

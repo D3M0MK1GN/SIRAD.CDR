@@ -460,7 +460,7 @@ export default function Trazabilidad() {
           const registrosResponse = await fetch(
             `/api/registros-comunicacion/abonado/${encodeURIComponent(
               data.telefono
-            )}?expedienteSujetoId=${data.id}`,
+            )}`,
             {
               headers: {
                 Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -614,7 +614,6 @@ export default function Trazabilidad() {
     const formDataToSend = new FormData();
     formDataToSend.append("archivo", archivoNuevoRegistro);
     formDataToSend.append("numeroAsociado", editData.telefono);
-    formDataToSend.append("expedienteSujetoId", String(editData.id));
 
     try {
       const response = await fetch("/api/registros-comunicacion/importar", {
@@ -637,7 +636,7 @@ export default function Trazabilidad() {
         const registrosResponse = await fetch(
           `/api/registros-comunicacion/abonado/${encodeURIComponent(
             editData.telefono
-          )}?expedienteSujetoId=${editData.id}`,
+          )}`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`,
