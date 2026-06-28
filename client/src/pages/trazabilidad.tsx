@@ -180,7 +180,7 @@ export default function Trazabilidad() {
     }
   };
 
-  const handleVerRegistros = async (numero: string) => {
+  const handleVerRegistros = async (numero: string, expedienteSujetoId?: number) => {
     // Limpiar datos anteriores y filtros antes de abrir el modal
     setRegistrosData([]);
     setFiltroGlobal("");
@@ -192,14 +192,14 @@ export default function Trazabilidad() {
     setShowRegistrosModal(true);
 
     try {
-      const response = await fetch(
-        `/api/registros-comunicacion/abonado/${encodeURIComponent(numero)}`,
-        {
+      const url = expedienteSujetoId
+        ? `/api/registros-comunicacion/abonado/${encodeURIComponent(numero)}?expedienteSujetoId=${expedienteSujetoId}`
+        : `/api/registros-comunicacion/abonado/${encodeURIComponent(numero)}`;
+      const response = await fetch(url, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        }
-      );
+        });
 
       if (response.ok) {
         const data = await response.json();
@@ -399,20 +399,20 @@ export default function Trazabilidad() {
     }
   };
 
-  const handleAnalizarTraza = async (numero: string) => {
+  const handleAnalizarTraza = async (numero: string, expedienteSujetoId?: number) => {
     setAnalisisData(null);
     setLoadingModal(true);
     setShowAnalisisModal(true);
 
     try {
-      const response = await fetch(
-        `/api/analisis-traza/${encodeURIComponent(numero)}`,
-        {
+      const url = expedienteSujetoId
+        ? `/api/analisis-traza/${encodeURIComponent(numero)}?expedienteSujetoId=${expedienteSujetoId}`
+        : `/api/analisis-traza/${encodeURIComponent(numero)}`;
+      const response = await fetch(url, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        }
-      );
+        });
 
       if (response.ok) {
         const data = await response.json();
@@ -457,16 +457,14 @@ export default function Trazabilidad() {
 
         // Cargar registros comunicacionales si hay un teléfono
         if (data.telefono) {
-          const registrosResponse = await fetch(
-            `/api/registros-comunicacion/abonado/${encodeURIComponent(
-              data.telefono
-            )}`,
-            {
+          const registrosUrl = data.id
+            ? `/api/registros-comunicacion/abonado/${encodeURIComponent(data.telefono)}?expedienteSujetoId=${data.id}`
+            : `/api/registros-comunicacion/abonado/${encodeURIComponent(data.telefono)}`;
+          const registrosResponse = await fetch(registrosUrl, {
               headers: {
                 Authorization: `Bearer ${localStorage.getItem("token")}`,
               },
-            }
-          );
+            });
 
           if (registrosResponse.ok) {
             const registrosData = await registrosResponse.json();
@@ -614,6 +612,9 @@ export default function Trazabilidad() {
     const formDataToSend = new FormData();
     formDataToSend.append("archivo", archivoNuevoRegistro);
     formDataToSend.append("numeroAsociado", editData.telefono);
+    if (editData.id) {
+      formDataToSend.append("expedienteSujetoId", String(editData.id));
+    }
 
     try {
       const response = await fetch("/api/registros-comunicacion/importar", {
@@ -632,17 +633,15 @@ export default function Trazabilidad() {
         });
         setArchivoNuevoRegistro(null);
 
-        // Recargar registros
-        const registrosResponse = await fetch(
-          `/api/registros-comunicacion/abonado/${encodeURIComponent(
-            editData.telefono
-          )}`,
-          {
+        // Recargar registros del mismo caso
+        const reloadUrl = editData.id
+          ? `/api/registros-comunicacion/abonado/${encodeURIComponent(editData.telefono)}?expedienteSujetoId=${editData.id}`
+          : `/api/registros-comunicacion/abonado/${encodeURIComponent(editData.telefono)}`;
+        const registrosResponse = await fetch(reloadUrl, {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`,
             },
-          }
-        );
+          });
 
         if (registrosResponse.ok) {
           const registrosData = await registrosResponse.json();
@@ -892,7 +891,7 @@ export default function Trazabilidad() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() =>
-                                  handleAnalizarTraza(resultado.numeroAsociado)
+                                  handleAnalizarTraza(resultado.numeroAsociado, resultado.id)
                                 }
                                 title="Analizar Traza"
                               >
@@ -912,7 +911,7 @@ export default function Trazabilidad() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() =>
-                                  handleVerRegistros(resultado.numeroAsociado)
+                                  handleVerRegistros(resultado.numeroAsociado, resultado.id)
                                 }
                                 title="Ver Registros"
                               >

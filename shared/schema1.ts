@@ -436,8 +436,6 @@ export const personaTelefonos = pgTable("persona_telefonos", {
 export const registrosComunicacion = pgTable("registros_comunicacion", {
   registroId: serial("registro_id").primaryKey(),
   experticiaId: integer("experticia_id").references(() => experticias.id, { onDelete: 'cascade' }),
-  // Scope del caso: garantiza aislamiento entre expedientes distintos para el mismo número
-  expedienteSujetoId: integer("expediente_sujeto_id").references(() => expedientesSujetos.id, { onDelete: 'set null' }),
   abonadoA: text("abonado_a").notNull(),
   abonadoB: text("abonado_b"),
   abonadoAId: integer("abonado_a_id").references(() => personaTelefonos.id),
@@ -460,10 +458,9 @@ export const registrosComunicacion = pgTable("registros_comunicacion", {
   peso: text("peso"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
-  abonadoAIdx:          index("idx_registros_abonado_a").on(table.abonadoA),
-  abonadoBIdx:          index("idx_registros_abonado_b").on(table.abonadoB),
-  experticiaIdx:        index("idx_registros_experticia").on(table.experticiaId),
-  expedienteSujetoIdx:  index("idx_registros_expediente_sujeto").on(table.expedienteSujetoId),
+  abonadoAIdx:   index("idx_registros_abonado_a").on(table.abonadoA),
+  abonadoBIdx:   index("idx_registros_abonado_b").on(table.abonadoB),
+  experticiaIdx: index("idx_registros_experticia").on(table.experticiaId),
 }));
 
 // Tabla EXPEDIENTES_SUJETOS - Datos del caso asociados a una persona
@@ -516,10 +513,6 @@ export const registrosComunicacionRelations = relations(registrosComunicacion, (
   experticia: one(experticias, {
     fields: [registrosComunicacion.experticiaId],
     references: [experticias.id],
-  }),
-  expedienteSujeto: one(expedientesSujetos, {
-    fields: [registrosComunicacion.expedienteSujetoId],
-    references: [expedientesSujetos.id],
   }),
   telefonoA: one(personaTelefonos, {
     fields: [registrosComunicacion.abonadoAId],

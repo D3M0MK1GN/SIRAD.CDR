@@ -646,7 +646,11 @@ export function registerAnalisisRoutes(
     try {
       const { numero } = req.params;
 
-      const registros = await storage.getRegistrosComunicacionByAbonado(numero);
+      const expedienteSujetoId = req.query.expedienteSujetoId
+        ? parseInt(req.query.expedienteSujetoId as string)
+        : undefined;
+
+      const registros = await storage.getRegistrosComunicacionByAbonado(numero, expedienteSujetoId);
 
       const numerosUnicos = new Set<string>();
       numerosUnicos.add(numero);
@@ -784,9 +788,9 @@ export function registerAnalisisRoutes(
     const { numero } = req.params;
     // Capturamos el experticiaId de la URL (query)
     const experticiaId = req.query.experticiaId ? parseInt(req.query.experticiaId as string) : undefined;
+    const expedienteSujetoIdTraza = req.query.expedienteSujetoId ? parseInt(req.query.expedienteSujetoId as string) : undefined;
 
-    // Pasamos el experticiaId para que Python solo reciba los de ese caso
-    const registros = await storage.getRegistrosComunicacionByAbonado(numero, experticiaId);
+    const registros = await storage.getRegistrosComunicacionByAbonado(numero, expedienteSujetoIdTraza, experticiaId);
 
     if (!registros || registros.length === 0) {
       return res.json({
@@ -993,11 +997,9 @@ export function registerAnalisisRoutes(
   app.get("/api/registros-comunicacion/abonado/:abonado", authenticateToken, async (req: any, res) => {
   try {
     const { abonado } = req.params;
-    // Capturamos el experticiaId de la URL (query)
     const experticiaId = req.query.experticiaId ? parseInt(req.query.experticiaId as string) : undefined;
-    
-    // Lo pasamos a la función
-    const registros = await storage.getRegistrosComunicacionByAbonado(abonado, experticiaId);
+    const expedienteSujetoId = req.query.expedienteSujetoId ? parseInt(req.query.expedienteSujetoId as string) : undefined;
+    const registros = await storage.getRegistrosComunicacionByAbonado(abonado, expedienteSujetoId, experticiaId);
     res.json(registros);
   } catch (error: any) {
     res.status(500).json({ message: "Error al obtener registros de comunicación" });
@@ -1164,6 +1166,21 @@ export function registerAnalisisRoutes(
             .json({ message: "No se encontraron registros válidos en el archivo" });
         }
 
+        // Resolver el scope del caso para evitar mezcla entre expedientes distintos
+        const expedienteSujetoId = req.body.expedienteSujetoId
+          ? parseInt(req.body.expedienteSujetoId)
+          : null;
+
+        let personaId: number | null = null;
+        let telefonoCaso: string | null = null;
+        if (expedienteSujetoId) {
+          const expSujeto = await storage.getExpedienteSujetoById(expedienteSujetoId);
+          if (expSujeto) {
+            personaId = expSujeto.personaId ?? null;
+            telefonoCaso = expSujeto.telefonoCaso ? expSujeto.telefonoCaso.trim() : null;
+          }
+        }
+
         const numerosUnicos = new Set<string>();
         registrosParaImportar.forEach((r) => {
           if (r.abonadoA) numerosUnicos.add(r.abonadoA.trim());
@@ -1172,15 +1189,32 @@ export function registerAnalisisRoutes(
 
         const numerosTelefonoMap = new Map<string, number>();
         for (const numero of Array.from(numerosUnicos)) {
-          let telefono = await storage.getPersonaTelefonoByNumero(numero);
-          if (!telefono) {
-            telefono = await storage.createPersonaTelefono({
-              numero,
-              tipo: "móvil",
-              activo: true,
-              personaId: null,
-            });
+          let telefono;
+
+          // Número del sujeto del caso: buscar/crear scoped a su personaId
+          if (personaId && telefonoCaso && numero === telefonoCaso) {
+            telefono = await storage.getPersonaTelefonoByNumeroYPersona(numero, personaId);
+            if (!telefono) {
+              telefono = await storage.createPersonaTelefono({
+                numero,
+                tipo: "móvil",
+                activo: true,
+                personaId,
+              });
+            }
+          } else {
+            // Números de contacto (abonado B u otros): búsqueda global
+            telefono = await storage.getPersonaTelefonoByNumero(numero);
+            if (!telefono) {
+              telefono = await storage.createPersonaTelefono({
+                numero,
+                tipo: "móvil",
+                activo: true,
+                personaId: null,
+              });
+            }
           }
+
           numerosTelefonoMap.set(numero, telefono.id);
         }
 
@@ -1188,6 +1222,7 @@ export function registerAnalisisRoutes(
           ...r,
           abonadoAId: r.abonadoA ? numerosTelefonoMap.get(r.abonadoA.trim()) || null : null,
           abonadoBId: r.abonadoB ? numerosTelefonoMap.get(r.abonadoB.trim()) || null : null,
+          expedienteSujetoId: expedienteSujetoId || null,
           time: r.time || null,
         }));
 
