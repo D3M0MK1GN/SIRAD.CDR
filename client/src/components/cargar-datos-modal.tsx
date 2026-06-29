@@ -140,14 +140,10 @@ export function CargarDatosModal({
       });
 
       if (response.ok) {
-        const responseData = await response.json();
         if (archivo && data.telefono) {
           const formDataToSend = new FormData();
           formDataToSend.append("archivo", archivo);
           formDataToSend.append("numeroAsociado", data.telefono);
-          if (responseData?.expediente?.id) {
-            formDataToSend.append("expedienteSujetoId", String(responseData.expediente.id));
-          }
 
           const registrosResponse = await fetch(
             "/api/registros-comunicacion/importar",

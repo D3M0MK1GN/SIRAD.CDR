@@ -196,7 +196,6 @@ export interface IStorage {
   getPersonaTelefonos(personaId: number): Promise<PersonaTelefono[]>;
   getPersonaTelefonoById(id: number): Promise<PersonaTelefono | undefined>;
   getPersonaTelefonoByNumero(numero: string): Promise<PersonaTelefono | undefined>;
-  getPersonaTelefonoByNumeroYPersona(numero: string, personaId: number): Promise<PersonaTelefono | undefined>;
   createPersonaTelefono(telefono: InsertPersonaTelefono): Promise<PersonaTelefono>;
   createPersonaTelefonosBulk(telefonos: InsertPersonaTelefono[]): Promise<PersonaTelefono[]>;
   updatePersonaTelefono(id: number, telefono: Partial<InsertPersonaTelefono>): Promise<PersonaTelefono | undefined>;
@@ -212,7 +211,7 @@ export interface IStorage {
     limit?: number;
   }): Promise<{ registros: RegistroComunicacion[]; total: number }>;
   getRegistroComunicacionById(registroId: number): Promise<RegistroComunicacion | undefined>;
-  getRegistrosComunicacionByAbonado(abonado: string, expedienteSujetoId?: number, experticiaId?: number): Promise<RegistroComunicacion[]>;
+  getRegistrosComunicacionByAbonado(abonado: string): Promise<RegistroComunicacion[]>;
   getRegistrosComunicacionByTelefonoIds(telefonoIds: number[]): Promise<RegistroComunicacion[]>;
   createRegistroComunicacion(registro: InsertRegistroComunicacion): Promise<RegistroComunicacion>;
   createRegistrosComunicacionBulk(registros: InsertRegistroComunicacion[]): Promise<void>;
@@ -1519,31 +1518,24 @@ export class DatabaseStorage implements IStorage {
     return registro || undefined;
   }
 
-  async getRegistrosComunicacionByAbonado(abonado: string, expedienteSujetoId?: number, experticiaId?: number): Promise<RegistroComunicacion[]> {
-  // Filtramos por texto exacto en abonado_a o abonado_b (sin depender de persona_telefonos.id)
-  const conditions: any[] = [
-    or(
-      eq(registrosComunicacion.abonadoA, abonado),
-      eq(registrosComunicacion.abonadoB, abonado)
-    )
-  ];
+  async getRegistrosComunicacionByAbonado(abonado: string): Promise<RegistroComunicacion[]> {
+    // La forma correcta: filtrar por abonado_a_id (FK hacia persona_telefonos).
+    // Esta FK solo se asigna al número que fue el sujeto analizado en cada fila,
+    // garantizando exactamente sus registros sin contaminación cruzada.
+    const [telRecord] = await db
+      .select({ id: personaTelefonos.id })
+      .from(personaTelefonos)
+      .where(eq(personaTelefonos.numero, abonado));
 
-  // Si tenemos el ID del expediente sujeto, filtramos estrictamente por ese caso
-  if (expedienteSujetoId) {
-    conditions.push(eq(registrosComunicacion.expedienteSujetoId, expedienteSujetoId));
+    if (!telRecord) return [];
+
+    return await db
+      .select()
+      .from(registrosComunicacion)
+      .where(eq(registrosComunicacion.abonadoAId, telRecord.id))
+      .orderBy(desc(registrosComunicacion.fecha));
   }
 
-  // Filtro adicional por experticia (compatibilidad con flujo anterior)
-  if (experticiaId) {
-    conditions.push(eq(registrosComunicacion.experticiaId, experticiaId));
-  }
-
-  return await db
-    .select()
-    .from(registrosComunicacion)
-    .where(and(...conditions))
-    .orderBy(desc(registrosComunicacion.fecha));
-}
   async getRegistrosComunicacionByTelefonoIds(telefonoIds: number[]): Promise<RegistroComunicacion[]> {
     if (telefonoIds.length === 0) return [];
 
@@ -1603,14 +1595,6 @@ export class DatabaseStorage implements IStorage {
 
   async getPersonaTelefonoByNumero(numero: string): Promise<PersonaTelefono | undefined> {
     const [telefono] = await db.select().from(personaTelefonos).where(eq(personaTelefonos.numero, numero));
-    return telefono || undefined;
-  }
-
-  async getPersonaTelefonoByNumeroYPersona(numero: string, personaId: number): Promise<PersonaTelefono | undefined> {
-    const [telefono] = await db
-      .select()
-      .from(personaTelefonos)
-      .where(and(eq(personaTelefonos.numero, numero), eq(personaTelefonos.personaId, personaId)));
     return telefono || undefined;
   }
 
