@@ -329,7 +329,14 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
   app.post("/api/experticias/analizar-contactos-frecuentes", authenticateToken, async (req: any, res) => {
     try {
       console.log("[SERVIDOR CF] Recibida petición en /api/experticias/analizar-contactos-frecuentes");
-      
+      console.log("[SERVIDOR CF] Body recibido:", {
+        archivo_excel: req.body?.archivo_excel,
+        archivo_base64: req.body?.archivo_base64 ? `[base64 ${req.body.archivo_base64.length} chars]` : "NO ENVIADO",
+        numero_buscar: req.body?.numero_buscar,
+        operador: req.body?.operador,
+        keys: Object.keys(req.body || {})
+      });
+
       const { archivo_excel, numero_buscar, operador } = req.body;
       
       if (!archivo_excel || !numero_buscar || !operador) {

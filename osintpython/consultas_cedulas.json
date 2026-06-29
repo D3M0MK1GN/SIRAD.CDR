@@ -3159,5 +3159,27 @@
             }
         },
         "success": true
+    },
+    {
+        "timestamp": "2026-06-29T11:02:20.443524",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "30880887",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=1966&token=f82f78de1c215aae3d0c30a4e020b561&nacionalidad=V&cedula=30880887",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 30880887,
+                "fecha_nac": "0000-00-00",
+                "rif": "V308808870",
+                "primer_apellido": "ROJAS",
+                "segundo_apellido": "RANGEL",
+                "primer_nombre": "LEIDYVICK",
+                "segundo_nombre": "MICHELLS",
+                "request_date": "2026-06-29T15:02:20.387Z"
+            }
+        },
+        "success": true
     }
 ]
