@@ -439,7 +439,6 @@ export const registrosComunicacion = pgTable("registros_comunicacion", {
   abonadoA: text("abonado_a").notNull(),
   abonadoB: text("abonado_b"),
   abonadoAId: integer("abonado_a_id").references(() => personaTelefonos.id),
-  abonadoBId: integer("abonado_b_id").references(() => personaTelefonos.id),
   tipoTransaccion: text("tipo_transaccion"),
   fecha: text("fecha"),
   hora: text("hora"),
@@ -459,7 +458,6 @@ export const registrosComunicacion = pgTable("registros_comunicacion", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   abonadoAIdx:   index("idx_registros_abonado_a").on(table.abonadoA),
-  abonadoBIdx:   index("idx_registros_abonado_b").on(table.abonadoB),
   experticiaIdx: index("idx_registros_experticia").on(table.experticiaId),
 }));
 

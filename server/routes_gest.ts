@@ -329,14 +329,7 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
   app.post("/api/experticias/analizar-contactos-frecuentes", authenticateToken, async (req: any, res) => {
     try {
       console.log("[SERVIDOR CF] Recibida petición en /api/experticias/analizar-contactos-frecuentes");
-      console.log("[SERVIDOR CF] Body recibido:", {
-        archivo_excel: req.body?.archivo_excel,
-        archivo_base64: req.body?.archivo_base64 ? `[base64 ${req.body.archivo_base64.length} chars]` : "NO ENVIADO",
-        numero_buscar: req.body?.numero_buscar,
-        operador: req.body?.operador,
-        keys: Object.keys(req.body || {})
-      });
-
+      
       const { archivo_excel, numero_buscar, operador } = req.body;
       
       if (!archivo_excel || !numero_buscar || !operador) {
@@ -923,6 +916,8 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
         ? req.body.listaAnalisis
         : [];
 
+      console.log(`[EXPERTICIA ${experticia.id}] listaAnalisis recibida: ${listaAnalisis.length} item(s)`);
+
       if (listaAnalisis.length > 0) {
         try {
           const mapearFila = (row: any, numeroOrigen: string, archivoNombre: string): any => ({
@@ -950,20 +945,24 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
             const numero: string = item.numero?.trim() || "";
             const datosCrudos: any[] = item.resultados?.contactos?.datosCrudos ?? [];
 
-            if (!numero || datosCrudos.length === 0) continue;
+            console.log(`[EXPERTICIA ${experticia.id}] Item → numero="${numero}" datosCrudos=${datosCrudos.length} fila(s)`);
+
+            if (!numero || datosCrudos.length === 0) {
+              console.log(`[EXPERTICIA ${experticia.id}] Saltando item: numero vacío=${!numero} datosCrudos vacíos=${datosCrudos.length === 0}`);
+              continue;
+            }
 
             // Registrar SOLO el número analizado en persona_telefonos.
             // Los interlocutores (abonadoB) se guardan como texto en la columna
             // abonado_b de registros_comunicacion; no se catalogan aquí.
-            let telAnalizado = await storage.getPersonaTelefonoByNumero(numero);
-            if (!telAnalizado) {
-              telAnalizado = await storage.createPersonaTelefono({
-                numero,
-                tipo: "móvil",
-                activo: true,
-                personaId: null,
-              });
-            }
+            console.log(`[EXPERTICIA ${experticia.id}] Creando persona_telefono para numero="${numero}"...`);
+            const telAnalizado = await storage.createPersonaTelefono({
+              numero,
+              tipo: "móvil",
+              activo: true,
+              personaId: null,
+            });
+            console.log(`[EXPERTICIA ${experticia.id}] persona_telefono creado → id=${telAnalizado.id}`);
             const abonadoAId = telAnalizado.id;
 
             // Mapear cada fila al formato de registros_comunicacion
@@ -977,14 +976,17 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
               })
               .filter((r: any) => r.abonadoA?.trim());
 
+            console.log(`[EXPERTICIA ${experticia.id}] Filas mapeadas válidas: ${filasMapeadas.length}`);
+
             if (filasMapeadas.length > 0) {
               await storage.createRegistrosComunicacionBulk(filasMapeadas);
+              console.log(`[EXPERTICIA ${experticia.id}] registros_comunicacion insertados: ${filasMapeadas.length}`);
             }
           }
         } catch (normError: any) {
           // No abortar la respuesta: la experticia ya fue creada.
           // El error se registra para diagnóstico.
-          console.error("[CREATE EXPERTICIA] Error normalizando registros de comunicación:", normError?.message);
+          console.error(`[EXPERTICIA] Error normalizando registros de comunicación: ${normError?.message}`, normError?.stack);
         }
       }
       // ─────────────────────────────────────────────────────────────────────
