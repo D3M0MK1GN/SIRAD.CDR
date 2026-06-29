@@ -79,6 +79,7 @@ export default function Trazabilidad() {
   const [coincidenciasData, setCoincidenciasData] = useState<any>(null);
   const [analisisData, setAnalisisData] = useState<any>(null);
   const [loadingModal, setLoadingModal] = useState(false);
+  const [currentExperticiaId, setCurrentExperticiaId] = useState<number | undefined>(undefined);
   const [editData, setEditData] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [editRegistros, setEditRegistros] = useState<any[]>([]);
@@ -180,7 +181,7 @@ export default function Trazabilidad() {
     }
   };
 
-  const handleVerRegistros = async (numero: string) => {
+  const handleVerRegistros = async (numero: string, experticiaId?: number) => {
     // Limpiar datos anteriores y filtros antes de abrir el modal
     setRegistrosData([]);
     setFiltroGlobal("");
@@ -188,18 +189,20 @@ export default function Trazabilidad() {
     setFechaFin("");
     setTipoEvento("todos");
     setPaginaActual(1);
+    setCurrentExperticiaId(experticiaId);
     setLoadingModal(true);
     setShowRegistrosModal(true);
 
+    const url = experticiaId
+      ? `/api/registros-comunicacion/abonado/${encodeURIComponent(numero)}?expedienteSujetoId=${experticiaId}`
+      : `/api/registros-comunicacion/abonado/${encodeURIComponent(numero)}`;
+
     try {
-      const response = await fetch(
-        `/api/registros-comunicacion/abonado/${encodeURIComponent(numero)}`,
-        {
+      const response = await fetch(url, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        }
-      );
+        });
 
       if (response.ok) {
         const data = await response.json();
@@ -353,7 +356,7 @@ export default function Trazabilidad() {
       )
     ) {
       setShowRegistrosModal(false);
-      handleAnalizarTraza(numeroContacto);
+      handleAnalizarTraza(numeroContacto, currentExperticiaId);
     }
   };
 
@@ -399,20 +402,21 @@ export default function Trazabilidad() {
     }
   };
 
-  const handleAnalizarTraza = async (numero: string) => {
+  const handleAnalizarTraza = async (numero: string, experticiaId?: number) => {
     setAnalisisData(null);
     setLoadingModal(true);
     setShowAnalisisModal(true);
 
+    const url = experticiaId
+      ? `/api/analisis-traza/${encodeURIComponent(numero)}?expedienteSujetoId=${experticiaId}`
+      : `/api/analisis-traza/${encodeURIComponent(numero)}`;
+
     try {
-      const response = await fetch(
-        `/api/analisis-traza/${encodeURIComponent(numero)}`,
-        {
+      const response = await fetch(url, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        }
-      );
+        });
 
       if (response.ok) {
         const data = await response.json();
@@ -614,6 +618,9 @@ export default function Trazabilidad() {
     const formDataToSend = new FormData();
     formDataToSend.append("archivo", archivoNuevoRegistro);
     formDataToSend.append("numeroAsociado", editData.telefono);
+    if (editData.id) {
+      formDataToSend.append("expedienteSujetoId", String(editData.id));
+    }
 
     try {
       const response = await fetch("/api/registros-comunicacion/importar", {
@@ -892,7 +899,7 @@ export default function Trazabilidad() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() =>
-                                  handleAnalizarTraza(resultado.numeroAsociado)
+                                  handleAnalizarTraza(resultado.numeroAsociado, resultado.id)
                                 }
                                 title="Analizar Traza"
                               >
@@ -912,7 +919,7 @@ export default function Trazabilidad() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() =>
-                                  handleVerRegistros(resultado.numeroAsociado)
+                                  handleVerRegistros(resultado.numeroAsociado, resultado.id)
                                 }
                                 title="Ver Registros"
                               >

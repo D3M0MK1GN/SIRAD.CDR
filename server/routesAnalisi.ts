@@ -782,9 +782,10 @@ export function registerAnalisisRoutes(
   app.get("/api/analisis-traza/:numero", authenticateToken, async (req: any, res) => {
     try {
       const { numero } = req.params;
+      const expedienteSujetoId = req.query.expedienteSujetoId ? parseInt(req.query.expedienteSujetoId as string) : undefined;
 
       // 1. Obtener registros desde la BD (igual que "Ver Registros")
-      const registros = await storage.getRegistrosComunicacionByAbonado(numero);
+      const registros = await storage.getRegistrosComunicacionByAbonado(numero, expedienteSujetoId);
 
       if (!registros || registros.length === 0) {
         return res.json({
@@ -989,7 +990,8 @@ export function registerAnalisisRoutes(
   app.get("/api/registros-comunicacion/abonado/:abonado", authenticateToken, async (req: any, res) => {
     try {
       const { abonado } = req.params;
-      const registros = await storage.getRegistrosComunicacionByAbonado(abonado);
+      const expedienteSujetoId = req.query.expedienteSujetoId ? parseInt(req.query.expedienteSujetoId as string) : undefined;
+      const registros = await storage.getRegistrosComunicacionByAbonado(abonado, expedienteSujetoId);
       res.json(registros);
     } catch (error: any) {
       res.status(500).json({ message: "Error al obtener registros de comunicación" });
@@ -1034,10 +1036,10 @@ export function registerAnalisisRoutes(
         coordenadasB: normalizarCoordenada(r.coordenadasB || ""),
       }));
       const validatedData = normalizedRegistros.map((r) => insertRegistroComunicacionSchema.parse(r));
-      const newRegistros = await storage.createRegistrosComunicacionBulk(validatedData);
+      await storage.createRegistrosComunicacionBulk(validatedData);
       res.status(201).json({
-        message: `${newRegistros.length} registros creados correctamente`,
-        registros: newRegistros,
+        message: `${validatedData.length} registros creados correctamente`,
+        registros: validatedData,
       });
     } catch (error: any) {
       if (error.name === "ZodError") {
@@ -1176,18 +1178,20 @@ export function registerAnalisisRoutes(
           numerosTelefonoMap.set(numero, telefono.id);
         }
 
+        const expedienteSujetoId = req.body.expedienteSujetoId ? parseInt(req.body.expedienteSujetoId) : null;
+
         const registrosConIds = registrosParaImportar.map((r) => ({
           ...r,
           abonadoAId: r.abonadoA ? numerosTelefonoMap.get(r.abonadoA.trim()) || null : null,
-          abonadoBId: r.abonadoB ? numerosTelefonoMap.get(r.abonadoB.trim()) || null : null,
+          expedienteSujetoId,
           time: r.time || null,
         }));
 
-        const newRegistros = await storage.createRegistrosComunicacionBulk(registrosConIds);
+        await storage.createRegistrosComunicacionBulk(registrosConIds);
 
         res.status(201).json({
           message: "Registros importados correctamente",
-          registrosImportados: newRegistros.length,
+          registrosImportados: registrosConIds.length,
           telefonosNuevos: Array.from(numerosUnicos).length,
         });
       } catch (error: any) {

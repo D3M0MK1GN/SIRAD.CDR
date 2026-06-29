@@ -211,7 +211,7 @@ export interface IStorage {
     limit?: number;
   }): Promise<{ registros: RegistroComunicacion[]; total: number }>;
   getRegistroComunicacionById(registroId: number): Promise<RegistroComunicacion | undefined>;
-  getRegistrosComunicacionByAbonado(abonado: string): Promise<RegistroComunicacion[]>;
+  getRegistrosComunicacionByAbonado(abonado: string, expedienteSujetoId?: number): Promise<RegistroComunicacion[]>;
   getRegistrosComunicacionByTelefonoIds(telefonoIds: number[]): Promise<RegistroComunicacion[]>;
   createRegistroComunicacion(registro: InsertRegistroComunicacion): Promise<RegistroComunicacion>;
   createRegistrosComunicacionBulk(registros: InsertRegistroComunicacion[]): Promise<void>;
@@ -1518,37 +1518,27 @@ export class DatabaseStorage implements IStorage {
     return registro || undefined;
   }
 
-  async getRegistrosComunicacionByAbonado(abonado: string): Promise<RegistroComunicacion[]> {
-    // La forma correcta: filtrar por abonado_a_id (FK hacia persona_telefonos).
-    // Esta FK solo se asigna al número que fue el sujeto analizado en cada fila,
-    // garantizando exactamente sus registros sin contaminación cruzada.
-    const [telRecord] = await db
-      .select({ id: personaTelefonos.id })
-      .from(personaTelefonos)
-      .where(eq(personaTelefonos.numero, abonado));
+  async getRegistrosComunicacionByAbonado(abonado: string, expedienteSujetoId?: number): Promise<RegistroComunicacion[]> {
+    const conditions: any[] = [eq(registrosComunicacion.abonadoA, abonado)];
 
-    if (!telRecord) return [];
+    if (expedienteSujetoId) {
+      conditions.push(eq(registrosComunicacion.expedienteSujetoId, expedienteSujetoId));
+    }
 
     return await db
       .select()
       .from(registrosComunicacion)
-      .where(eq(registrosComunicacion.abonadoAId, telRecord.id))
+      .where(and(...conditions))
       .orderBy(desc(registrosComunicacion.fecha));
   }
 
   async getRegistrosComunicacionByTelefonoIds(telefonoIds: number[]): Promise<RegistroComunicacion[]> {
     if (telefonoIds.length === 0) return [];
 
-    // Buscar registros donde abonadoAId o abonadoBId estén en la lista de IDs
     return await db
       .select()
       .from(registrosComunicacion)
-      .where(
-        or(
-          inArray(registrosComunicacion.abonadoAId, telefonoIds),
-          inArray(registrosComunicacion.abonadoBId, telefonoIds)
-        )
-      )
+      .where(inArray(registrosComunicacion.abonadoAId, telefonoIds))
       .orderBy(desc(registrosComunicacion.fecha));
   }
 

@@ -8,7 +8,9 @@ import ExcelJS from 'exceljs';
 import multer from 'multer';
 import fetch from 'node-fetch';
 import { parseWithPrefixes } from '../tools/utils_I';
-import { experticias, insertExperticiasSchema } from '../shared/schema';
+import { experticias, insertExperticiasSchema, expedientesSujetos } from '../shared/schema';
+import { db } from './db';
+import { eq } from 'drizzle-orm';
 
 // Al inicio del archivo routes_gest.ts
 const swiPdf = {
@@ -972,13 +974,20 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
             console.log(`[EXPERTICIA ${experticia.id}] persona_telefono creado → id=${telAnalizado.id}`);
             const abonadoAId = telAnalizado.id;
 
+            // Buscar el expediente sujeto vinculado a este número de teléfono
+            const [expSujeto] = await db
+              .select({ id: expedientesSujetos.id })
+              .from(expedientesSujetos)
+              .where(eq(expedientesSujetos.telefonoCaso, numero));
+            const expedienteSujetoId = expSujeto?.id ?? null;
+
             // Mapear cada fila al formato de registros_comunicacion
             const filasMapeadas = datosCrudos
               .map((row: any) => {
                 const mapped = mapearFila(row, numero, item.archivoNombre || "");
                 mapped.experticiaId = experticia.id;
                 mapped.abonadoAId = abonadoAId;
-                mapped.abonadoBId = null; // interlocutor no se cataloga
+                mapped.expedienteSujetoId = expedienteSujetoId;
                 return mapped;
               })
               .filter((r: any) => r.abonadoA?.trim());

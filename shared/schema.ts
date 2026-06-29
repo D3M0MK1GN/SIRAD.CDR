@@ -439,7 +439,7 @@ export const registrosComunicacion = pgTable("registros_comunicacion", {
   abonadoA: text("abonado_a").notNull(),
   abonadoB: text("abonado_b"),
   abonadoAId: integer("abonado_a_id").references(() => personaTelefonos.id),
-  abonadoBId: integer("abonado_b_id").references(() => personaTelefonos.id),
+  expedienteSujetoId: integer("expediente_sujeto_id").references(() => expedientesSujetos.id, { onDelete: 'set null' }),
   tipoTransaccion: text("tipo_transaccion"),
   fecha: text("fecha"),
   hora: text("hora"),
@@ -459,8 +459,9 @@ export const registrosComunicacion = pgTable("registros_comunicacion", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   abonadoAIdx:   index("idx_registros_abonado_a").on(table.abonadoA),
-  abonadoBIdx:   index("idx_registros_abonado_b").on(table.abonadoB),
-  experticiaIdx: index("idx_registros_experticia").on(table.experticiaId),
+  abonadoBIdx:          index("idx_registros_abonado_b").on(table.abonadoB),
+  experticiaIdx:        index("idx_registros_experticia").on(table.experticiaId),
+  expSujetoIdx:         index("idx_registros_expediente_sujeto").on(table.expedienteSujetoId),
 }));
 
 // Tabla EXPEDIENTES_SUJETOS - Datos del caso asociados a una persona
@@ -489,11 +490,12 @@ export const personasCasosRelations = relations(personasCasos, ({ one, many }) =
   expedientes: many(expedientesSujetos),
 }));
 
-export const expedientesSujetosRelations = relations(expedientesSujetos, ({ one }) => ({
+export const expedientesSujetosRelations = relations(expedientesSujetos, ({ one, many }) => ({
   persona: one(personasCasos, {
     fields: [expedientesSujetos.personaId],
     references: [personasCasos.nro],
   }),
+  registrosComunicacion: many(registrosComunicacion),
 }));
 
 export const personaTelefonosRelations = relations(personaTelefonos, ({ one, many }) => ({
@@ -503,9 +505,6 @@ export const personaTelefonosRelations = relations(personaTelefonos, ({ one, man
   }),
   registrosComunicacionA: many(registrosComunicacion, {
     relationName: 'registros_abonado_a',
-  }),
-  registrosComunicacionB: many(registrosComunicacion, {
-    relationName: 'registros_abonado_b',
   }),
 }));
 
@@ -519,10 +518,9 @@ export const registrosComunicacionRelations = relations(registrosComunicacion, (
     references: [personaTelefonos.id],
     relationName: 'registros_abonado_a',
   }),
-  telefonoB: one(personaTelefonos, {
-    fields: [registrosComunicacion.abonadoBId],
-    references: [personaTelefonos.id],
-    relationName: 'registros_abonado_b',
+  expedienteSujeto: one(expedientesSujetos, {
+    fields: [registrosComunicacion.expedienteSujetoId],
+    references: [expedientesSujetos.id],
   }),
 }));
 
