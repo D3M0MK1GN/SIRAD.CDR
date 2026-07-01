@@ -1519,16 +1519,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRegistrosComunicacionByAbonado(abonado: string, expedienteSujetoId?: number): Promise<RegistroComunicacion[]> {
-    const conditions: any[] = [eq(registrosComunicacion.abonadoA, abonado)];
+    const abonadoCondition = or(
+      eq(registrosComunicacion.abonadoA, abonado),
+      eq(registrosComunicacion.abonadoB, abonado)
+    );
 
-    if (expedienteSujetoId) {
-      conditions.push(eq(registrosComunicacion.expedienteSujetoId, expedienteSujetoId));
-    }
+    const whereClause = expedienteSujetoId
+      ? and(abonadoCondition, eq(registrosComunicacion.expedienteSujetoId, expedienteSujetoId))
+      : abonadoCondition;
 
     return await db
       .select()
       .from(registrosComunicacion)
-      .where(and(...conditions))
+      .where(whereClause)
       .orderBy(desc(registrosComunicacion.fecha));
   }
 

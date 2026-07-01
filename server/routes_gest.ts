@@ -10,7 +10,7 @@ import fetch from 'node-fetch';
 import { parseWithPrefixes } from '../tools/utils_I';
 import { experticias, insertExperticiasSchema, expedientesSujetos } from '../shared/schema';
 import { db } from './db';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 // Al inicio del archivo routes_gest.ts
 const swiPdf = {
@@ -974,12 +974,18 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
             console.log(`[EXPERTICIA ${experticia.id}] persona_telefono creado → id=${telAnalizado.id}`);
             const abonadoAId = telAnalizado.id;
 
-            // Buscar el expediente sujeto vinculado a este número de teléfono
-            const [expSujeto] = await db
+            // Buscar el expediente_sujeto ya creado por el usuario antes de subir el Excel.
+            // No se crea ninguno automáticamente: el usuario debe registrar primero
+            // los datos del sujeto en el modal de la experticia.
+            const [expSujetoExistente] = await db
               .select({ id: expedientesSujetos.id })
               .from(expedientesSujetos)
-              .where(eq(expedientesSujetos.telefonoCaso, numero));
-            const expedienteSujetoId = expSujeto?.id ?? null;
+              .where(eq(expedientesSujetos.telefonoCaso, numero))
+              .orderBy(sql`persona_id NULLS LAST`)
+              .limit(1);
+
+            const expedienteSujetoId: number | null = expSujetoExistente?.id ?? null;
+            console.log(`[EXPERTICIA ${experticia.id}] expediente_sujeto_id=${expedienteSujetoId ?? "null"} para teléfono="${numero}"`);
 
             // Mapear cada fila al formato de registros_comunicacion
             const filasMapeadas = datosCrudos

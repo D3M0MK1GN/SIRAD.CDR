@@ -1817,22 +1817,14 @@ export function ExperticiasForm({
       afiliadosMapRef.current[numeroActual] = afiliadoData;
     }
 
-    // Primero crear la experticia. Solo si tiene éxito se guardan los datos
-    // filiatorios y de teléfonos para evitar datos huérfanos en caso de error
-    // (por ejemplo, experticia duplicada).
-    try {
-      await onSubmit(submitData);
-    } catch {
-      isSubmittingRef.current = false;
-      return;
-    }
-
-    // La experticia se creó correctamente — ahora es seguro guardar los datos
-    // asociados (personas-casos y persona-telefonos).
+    // PASO 1: Guardar primero los datos del sujeto (personas-casos / expediente_sujeto)
+    // para que ya existan en la BD cuando el backend procese el Excel y busque
+    // el expediente_sujeto_id. Así se evita que el backend cree registros fantasma.
     if (esContactoFrecuente && esMultiTarget) {
       // MODO MULTI-TARGET: un POST por cada número con cédula registrada
-      Object.entries(afiliadosMapRef.current).forEach(([numeroAbonado, datosAfiliado]) => {
-        if (datosAfiliado.cedula?.trim()) {
+      const promesasPersonas = Object.entries(afiliadosMapRef.current)
+        .filter(([, datosAfiliado]) => datosAfiliado.cedula?.trim())
+        .map(([numeroAbonado, datosAfiliado]) =>
           fetch(`/api/personas-casos`, {
             method: "POST",
             headers: {
@@ -1857,22 +1849,14 @@ export function ExperticiasForm({
               telefono: numeroAbonado,
               expediente: (data as any).expediente || null,
             }),
-          }).catch((err) => console.error(`Error guardando afiliado ${numeroAbonado}:`, err));
-        }
-        // Guardar statusLinea/fechaActivacion en persona_telefonos independientemente de cédula
-        if (datosAfiliado.statusLinea || datosAfiliado.fechaActivacion) {
-          fetch(`/api/persona-telefonos/update-by-numero`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
-            body: JSON.stringify({ numero: numeroAbonado, statusLinea: datosAfiliado.statusLinea || null, fechaActivacion: datosAfiliado.fechaActivacion || null }),
-          }).catch(() => {});
-        }
-      });
+          }).catch((err) => console.error(`Error guardando afiliado ${numeroAbonado}:`, err))
+        );
+      await Promise.allSettled(promesasPersonas);
     } else {
-      // MODO INDIVIDUAL: comportamiento original
+      // MODO INDIVIDUAL
       const abonadoUnico = (data as any).abonado?.trim();
       if (abonadoUnico && afiliadoData.cedula.trim()) {
-        fetch(`/api/personas-casos`, {
+        await fetch(`/api/personas-casos`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1898,7 +1882,31 @@ export function ExperticiasForm({
           }),
         }).catch(() => {});
       }
-      // Guardar statusLinea/fechaActivacion en persona_telefonos independientemente de cédula
+    }
+
+    // PASO 2: Crear la experticia. El backend ahora encontrará el expediente_sujeto
+    // ya registrado en la BD y asignará el ID correcto a los registros_comunicacion.
+    try {
+      await onSubmit(submitData);
+    } catch {
+      isSubmittingRef.current = false;
+      return;
+    }
+
+    // PASO 3: Actualizar statusLinea/fechaActivacion en persona_telefonos (fire-and-forget,
+    // no bloquea el flujo ni afecta el expediente_sujeto_id).
+    if (esContactoFrecuente && esMultiTarget) {
+      Object.entries(afiliadosMapRef.current).forEach(([numeroAbonado, datosAfiliado]) => {
+        if (datosAfiliado.statusLinea || datosAfiliado.fechaActivacion) {
+          fetch(`/api/persona-telefonos/update-by-numero`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
+            body: JSON.stringify({ numero: numeroAbonado, statusLinea: datosAfiliado.statusLinea || null, fechaActivacion: datosAfiliado.fechaActivacion || null }),
+          }).catch(() => {});
+        }
+      });
+    } else {
+      const abonadoUnico = (data as any).abonado?.trim();
       if (abonadoUnico && (afiliadoData.statusLinea || afiliadoData.fechaActivacion)) {
         fetch(`/api/persona-telefonos/update-by-numero`, {
           method: "POST",
