@@ -2050,3 +2050,11 @@ STDOUT:
 [113428:0629/100157.742015:ERROR:content/browser/gpu/gpu_process_host.cc:993] GPU process launch failed: error_code=1002
 [113428:0629/100157.742585:ERROR:content/browser/gpu/gpu_process_host.cc:993] GPU process launch failed: error_code=1002
 [113428:0629/100157.742601:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc:415] GPU process isn't usable. Goodbye.
+
+(thunar:20782): GLib-GIO-CRITICAL **: 18:45:37.898: GFileInfo created without standard::size
+
+(thunar:20782): GLib-GIO-CRITICAL **: 18:45:37.939: file ../../../gio/gfileinfo.c: line 1845 (g_file_info_get_size): should not be reached
+
+(thunar:20782): GLib-GIO-CRITICAL **: 18:45:55.663: GFileInfo created without standard::size
+
+(thunar:20782): GLib-GIO-CRITICAL **: 18:45:55.663: file ../../../gio/gfileinfo.c: line 1845 (g_file_info_get_size): should not be reached
