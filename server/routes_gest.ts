@@ -10,7 +10,7 @@ import fetch from 'node-fetch';
 import { parseWithPrefixes } from '../tools/utils_I';
 import { experticias, insertExperticiasSchema, expedientesSujetos } from '../shared/schema';
 import { db } from './db';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 // Al inicio del archivo routes_gest.ts
 const swiPdf = {
@@ -964,28 +964,23 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
             // Registrar SOLO el número analizado en persona_telefonos.
             // Los interlocutores (abonadoB) se guardan como texto en la columna
             // abonado_b de registros_comunicacion; no se catalogan aquí.
-            console.log(`[EXPERTICIA ${experticia.id}] Creando persona_telefono para numero="${numero}"...`);
-            const telAnalizado = await storage.createPersonaTelefono({
+            // Upsert atómico: crea si no existe, devuelve el existente si ya hay uno.
+            // Imposible crear duplicados gracias al UNIQUE constraint en persona_telefonos.numero.
+            const telAnalizado = await storage.upsertPersonaTelefono({
               numero,
               tipo: "móvil",
               activo: true,
               personaId: null,
             });
-            console.log(`[EXPERTICIA ${experticia.id}] persona_telefono creado → id=${telAnalizado.id}`);
+            console.log(`[EXPERTICIA ${experticia.id}] persona_telefono upsert → id=${telAnalizado.id} para numero="${numero}"`);
             const abonadoAId = telAnalizado.id;
 
-            // Buscar el expediente_sujeto ya creado por el usuario antes de subir el Excel.
-            // No se crea ninguno automáticamente: el usuario debe registrar primero
-            // los datos del sujeto en el modal de la experticia.
-            const [expSujetoExistente] = await db
-              .select({ id: expedientesSujetos.id })
-              .from(expedientesSujetos)
-              .where(eq(expedientesSujetos.telefonoCaso, numero))
-              .orderBy(sql`persona_id NULLS LAST`)
-              .limit(1);
-
-            const expedienteSujetoId: number | null = expSujetoExistente?.id ?? null;
-            console.log(`[EXPERTICIA ${experticia.id}] expediente_sujeto_id=${expedienteSujetoId ?? "null"} para teléfono="${numero}"`);
+            // Usar el expediente_sujeto_id capturado directamente en el frontend
+            // durante el PASO 1 (al crear persona/caso). Esto evita la re-consulta
+            // por telefono+expediente que era ambigua en caso de duplicados.
+            const expedienteSujetoId: number | null =
+              typeof item.expedienteSujetoId === "number" ? item.expedienteSujetoId : null;
+            console.log(`[EXPERTICIA ${experticia.id}] expediente_sujeto_id=${expedienteSujetoId ?? "null"} para teléfono="${numero}" (capturado en creación)`);
 
             // Mapear cada fila al formato de registros_comunicacion
             const filasMapeadas = datosCrudos
@@ -994,6 +989,7 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
                 mapped.experticiaId = experticia.id;
                 mapped.abonadoAId = abonadoAId;
                 mapped.expedienteSujetoId = expedienteSujetoId;
+                mapped.usuarioId = req.user.id;
                 return mapped;
               })
               .filter((r: any) => r.abonadoA?.trim());

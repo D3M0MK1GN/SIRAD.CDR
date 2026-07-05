@@ -197,6 +197,7 @@ export interface IStorage {
   getPersonaTelefonoById(id: number): Promise<PersonaTelefono | undefined>;
   getPersonaTelefonoByNumero(numero: string): Promise<PersonaTelefono | undefined>;
   createPersonaTelefono(telefono: InsertPersonaTelefono): Promise<PersonaTelefono>;
+  upsertPersonaTelefono(data: InsertPersonaTelefono): Promise<PersonaTelefono>;
   createPersonaTelefonosBulk(telefonos: InsertPersonaTelefono[]): Promise<PersonaTelefono[]>;
   updatePersonaTelefono(id: number, telefono: Partial<InsertPersonaTelefono>): Promise<PersonaTelefono | undefined>;
   deletePersonaTelefono(id: number): Promise<boolean>;
@@ -1594,6 +1595,22 @@ export class DatabaseStorage implements IStorage {
   async createPersonaTelefono(telefono: InsertPersonaTelefono): Promise<PersonaTelefono> {
     const [newTelefono] = await db.insert(personaTelefonos).values(telefono).returning();
     return newTelefono;
+  }
+
+  async upsertPersonaTelefono(data: InsertPersonaTelefono): Promise<PersonaTelefono> {
+    const [row] = await db
+      .insert(personaTelefonos)
+      .values(data)
+      .onConflictDoUpdate({
+        target: personaTelefonos.numero,
+        set: {
+          personaId:       sql`COALESCE(EXCLUDED.persona_id,        persona_telefonos.persona_id)`,
+          statusLinea:     sql`COALESCE(EXCLUDED.status_linea,      persona_telefonos.status_linea)`,
+          fechaActivacion: sql`COALESCE(EXCLUDED.fecha_activacion,  persona_telefonos.fecha_activacion)`,
+        },
+      })
+      .returning();
+    return row;
   }
 
   async createPersonaTelefonosBulk(telefonos: InsertPersonaTelefono[]): Promise<PersonaTelefono[]> {

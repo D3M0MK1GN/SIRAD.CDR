@@ -76,21 +76,12 @@ export function registerAnalisisRoutes(
       const { numero, statusLinea, fechaActivacion } = req.body;
       if (!numero) return res.status(400).json({ message: "numero es requerido" });
 
-      const telExistente = await storage.getPersonaTelefonoByNumero(numero);
-      if (telExistente) {
-        const updated = await storage.updatePersonaTelefono(telExistente.id, {
-          statusLinea: statusLinea || undefined,
-          fechaActivacion: fechaActivacion || undefined,
-        });
-        return res.json(updated);
-      } else {
-        const created = await storage.createPersonaTelefono({
-          numero,
-          statusLinea: statusLinea || undefined,
-          fechaActivacion: fechaActivacion || undefined,
-        });
-        return res.status(201).json(created);
-      }
+      const result = await storage.upsertPersonaTelefono({
+        numero,
+        statusLinea: statusLinea || undefined,
+        fechaActivacion: fechaActivacion || undefined,
+      });
+      return res.json(result);
     } catch {
       res.status(500).json({ message: "Error actualizando teléfono" });
     }
@@ -140,21 +131,13 @@ export function registerAnalisisRoutes(
 
       // Upsert status_linea y fecha_activacion en persona_telefonos si se provee el teléfono
       const telefonoNumero = body.telefono || body.telefonoCaso;
-      if (telefonoNumero && (body.statusLinea || body.fechaActivacion)) {
-        const telExistente = await storage.getPersonaTelefonoByNumero(telefonoNumero);
-        if (telExistente) {
-          await storage.updatePersonaTelefono(telExistente.id, {
-            statusLinea: body.statusLinea || undefined,
-            fechaActivacion: body.fechaActivacion || undefined,
-          });
-        } else {
-          await storage.createPersonaTelefono({
-            personaId: persona.nro,
-            numero: telefonoNumero,
-            statusLinea: body.statusLinea || undefined,
-            fechaActivacion: body.fechaActivacion || undefined,
-          });
-        }
+      if (telefonoNumero) {
+        await storage.upsertPersonaTelefono({
+          personaId: persona.nro,
+          numero: telefonoNumero,
+          statusLinea: body.statusLinea || undefined,
+          fechaActivacion: body.fechaActivacion || undefined,
+        });
       }
 
       const validatedCase = insertExpedienteSujetoSchema.parse({ ...caseFields, personaId: persona.nro });
@@ -1166,15 +1149,12 @@ export function registerAnalisisRoutes(
 
         const numerosTelefonoMap = new Map<string, number>();
         for (const numero of Array.from(numerosUnicos)) {
-          let telefono = await storage.getPersonaTelefonoByNumero(numero);
-          if (!telefono) {
-            telefono = await storage.createPersonaTelefono({
-              numero,
-              tipo: "móvil",
-              activo: true,
-              personaId: null,
-            });
-          }
+          const telefono = await storage.upsertPersonaTelefono({
+            numero,
+            tipo: "móvil",
+            activo: true,
+            personaId: null,
+          });
           numerosTelefonoMap.set(numero, telefono.id);
         }
 

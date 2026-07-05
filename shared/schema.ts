@@ -423,7 +423,7 @@ export const personasCasos = pgTable("personas_casos", {
 export const personaTelefonos = pgTable("persona_telefonos", {
   id: serial("id").primaryKey(),
   personaId: integer("persona_id").references(() => personasCasos.nro, { onDelete: 'cascade' }),
-  numero: text("numero").notNull(), // Número de teléfono (sin UNIQUE: puede repetirse en casos independientes)
+  numero: text("numero").notNull().unique(),
   tipo: text("tipo"), // Tipo: móvil, fijo, trabajo, etc.
   iconoTipo: text("icono_tipo"), // Icono asignado para visualización en el grafo
   activo: boolean("activo").default(true),
@@ -440,6 +440,7 @@ export const registrosComunicacion = pgTable("registros_comunicacion", {
   abonadoB: text("abonado_b"),
   abonadoAId: integer("abonado_a_id").references(() => personaTelefonos.id),
   expedienteSujetoId: integer("expediente_sujeto_id").references(() => expedientesSujetos.id, { onDelete: 'set null' }),
+  usuarioId: integer("usuario_id").references(() => users.id, { onDelete: 'set null' }),
   tipoTransaccion: text("tipo_transaccion"),
   fecha: text("fecha"),
   hora: text("hora"),
@@ -462,6 +463,7 @@ export const registrosComunicacion = pgTable("registros_comunicacion", {
   abonadoBIdx:          index("idx_registros_abonado_b").on(table.abonadoB),
   experticiaIdx:        index("idx_registros_experticia").on(table.experticiaId),
   expSujetoIdx:         index("idx_registros_expediente_sujeto").on(table.expedienteSujetoId),
+  usuarioIdx:           index("idx_registros_usuario").on(table.usuarioId),
 }));
 
 // Tabla EXPEDIENTES_SUJETOS - Datos del caso asociados a una persona

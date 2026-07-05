@@ -1818,8 +1818,10 @@ export function ExperticiasForm({
     }
 
     // PASO 1: Guardar primero los datos del sujeto (personas-casos / expediente_sujeto)
-    // para que ya existan en la BD cuando el backend procese el Excel y busque
-    // el expediente_sujeto_id. Así se evita que el backend cree registros fantasma.
+    // y capturar el ID del expediente_sujeto retornado para evitar re-consultas
+    // ambiguas en el backend (problema de duplicados por telefono+expediente).
+    const numToExpSujetoId: Record<string, number | null> = {};
+
     if (esContactoFrecuente && esMultiTarget) {
       // MODO MULTI-TARGET: un POST por cada número con cédula registrada
       const promesasPersonas = Object.entries(afiliadosMapRef.current)
@@ -1849,7 +1851,12 @@ export function ExperticiasForm({
               telefono: numeroAbonado,
               expediente: (data as any).expediente || null,
             }),
-          }).catch((err) => console.error(`Error guardando afiliado ${numeroAbonado}:`, err))
+          })
+            .then((r) => r.json())
+            .then((json) => {
+              numToExpSujetoId[numeroAbonado] = json?.expediente?.id ?? null;
+            })
+            .catch((err) => console.error(`Error guardando afiliado ${numeroAbonado}:`, err))
         );
       await Promise.allSettled(promesasPersonas);
     } else {
@@ -1880,12 +1887,25 @@ export function ExperticiasForm({
             telefono: abonadoUnico,
             expediente: (data as any).expediente || null,
           }),
-        }).catch(() => {});
+        })
+          .then((r) => r.json())
+          .then((json) => {
+            numToExpSujetoId[abonadoUnico] = json?.expediente?.id ?? null;
+          })
+          .catch(() => {});
       }
     }
 
-    // PASO 2: Crear la experticia. El backend ahora encontrará el expediente_sujeto
-    // ya registrado en la BD y asignará el ID correcto a los registros_comunicacion.
+    // PASO 2: Crear la experticia. Se inyecta el expedienteSujetoId capturado en
+    // PASO 1 directamente en cada item de listaAnalisis para que el backend lo use
+    // sin necesidad de re-consultar la BD (evita ambigüedad por duplicados).
+    if (submitData.listaAnalisis?.length > 0) {
+      submitData.listaAnalisis = submitData.listaAnalisis.map((item: any) => ({
+        ...item,
+        expedienteSujetoId: numToExpSujetoId[item.numero] ?? null,
+      }));
+    }
+
     try {
       await onSubmit(submitData);
     } catch {

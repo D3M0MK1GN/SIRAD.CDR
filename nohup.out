@@ -2058,3 +2058,59 @@ STDOUT:
 (thunar:20782): GLib-GIO-CRITICAL **: 18:45:55.663: GFileInfo created without standard::size
 
 (thunar:20782): GLib-GIO-CRITICAL **: 18:45:55.663: file ../../../gio/gfileinfo.c: line 1845 (g_file_info_get_size): should not be reached
+
+(thunar:435894): GLib-GIO-CRITICAL **: 09:11:05.242: GFileInfo created without standard::size
+
+(thunar:435894): GLib-GIO-CRITICAL **: 09:11:05.242: file ../../../gio/gfileinfo.c: line 1845 (g_file_info_get_size): should not be reached
+
+** (xed:436391): WARNING **: 09:11:55.068: Error initializing Python Plugin Loader: PyGObject initialization failed
+ImportError: could not import gobject (error was: ModuleNotFoundError("No module named 'gi'"))
+
+** (xed:436391): WARNING **: 09:11:55.068: Please check the installation of all the Python related packages required by libpeas and try again
+
+(xed:436391): libpeas-WARNING **: 09:11:55.068: Loader 'python3' is not a valid PeasPluginLoader instance
+
+** (xed:436391): WARNING **: 09:11:55.134: Failed to load builtin plugin: Tamaño del texto
+
+** (xed:436391): WARNING **: 09:11:55.134: Failed to load builtin plugin: Unir líneas
+
+** (xed:436391): WARNING **: 09:11:55.134: Failed to load builtin plugin: Open URI
+
+(thunar:441773): GLib-GIO-CRITICAL **: 09:22:47.089: GFileInfo created without standard::size
+
+(thunar:441773): GLib-GIO-CRITICAL **: 09:22:47.089: file ../../../gio/gfileinfo.c: line 1845 (g_file_info_get_size): should not be reached
+Warning: failed to launch javaldx - java may not function correctly
+X connection to :0 broken (explicit kill or server shutdown).
+Warning: failed to launch javaldx - java may not function correctly
+
+(thunar:441773): GLib-GIO-CRITICAL **: 10:00:10.349: GFileInfo created without standard::size
+
+(thunar:441773): GLib-GIO-CRITICAL **: 10:00:10.349: file ../../../gio/gfileinfo.c: line 1845 (g_file_info_get_size): should not be reached
+
+(thunar:441773): GLib-GIO-CRITICAL **: 10:12:44.600: GFileInfo created without standard::size
+
+(thunar:441773): GLib-GIO-CRITICAL **: 10:12:44.600: file ../../../gio/gfileinfo.c: line 1845 (g_file_info_get_size): should not be reached
+
+(thunar:441773): GLib-GIO-CRITICAL **: 10:12:45.486: GFileInfo created without standard::size
+
+(thunar:441773): GLib-GIO-CRITICAL **: 10:12:45.486: file ../../../gio/gfileinfo.c: line 1845 (g_file_info_get_size): should not be reached
+
+(thunar:441773): GLib-GIO-CRITICAL **: 10:13:01.630: GFileInfo created without standard::size
+
+(thunar:441773): GLib-GIO-CRITICAL **: 10:13:01.630: file ../../../gio/gfileinfo.c: line 1845 (g_file_info_get_size): should not be reached
+ThunarThumbnailCache: failed to call Copy(): Se alcanzó el tiempo de expiración
+ThunarThumbnailCache: failed to call Copy(): Se alcanzó el tiempo de expiración
+ThunarThumbnailCache: failed to call Move(): Se alcanzó el tiempo de expiración
+ThunarThumbnailCache: failed to call Copy(): Se alcanzó el tiempo de expiración
+ThunarThumbnailCache: failed to call Copy(): Se alcanzó el tiempo de expiración
+ThunarThumbnailCache: failed to call Copy(): Se alcanzó el tiempo de expiración
+ThunarThumbnailCache: failed to call Copy(): Se alcanzó el tiempo de expiración
+ThunarThumbnailCache: failed to call Copy(): Se alcanzó el tiempo de expiración
+
+(thunar:482751): GLib-GIO-CRITICAL **: 10:41:21.472: GFileInfo created without standard::size
+
+(thunar:482751): GLib-GIO-CRITICAL **: 10:41:21.618: file ../../../gio/gfileinfo.c: line 1845 (g_file_info_get_size): should not be reached
+
+(thunar:482751): GLib-GIO-CRITICAL **: 10:41:30.121: GFileInfo created without standard::size
+
+(thunar:482751): GLib-GIO-CRITICAL **: 10:41:30.121: file ../../../gio/gfileinfo.c: line 1845 (g_file_info_get_size): should not be reached
