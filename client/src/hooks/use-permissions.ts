@@ -59,7 +59,7 @@ export function usePermissions(): Permission {
           canViewDashboard: true,
           canViewEmailTemplates: false,
           canCreateExperticias: true,
-          canEditCreationDates: false,
+          canEditCreationDates: true,
         };
       
       case "usuario":

@@ -425,7 +425,6 @@ export const personaTelefonos = pgTable("persona_telefonos", {
   personaId: integer("persona_id").references(() => personasCasos.nro, { onDelete: 'cascade' }),
   numero: text("numero").notNull().unique(),
   tipo: text("tipo"), // Tipo: móvil, fijo, trabajo, etc.
-  iconoTipo: text("icono_tipo"), // Icono asignado para visualización en el grafo
   activo: boolean("activo").default(true),
   statusLinea: text("status_linea"),
   fechaActivacion: text("fecha_activacion"),

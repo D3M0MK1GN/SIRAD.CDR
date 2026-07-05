@@ -37,7 +37,6 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
-  Repeat,
   Upload,
   Edit,
   Trash2,
@@ -348,15 +347,42 @@ export default function Trazabilidad() {
     });
   };
 
-  // Función para iniciar análisis de un contacto
-  const handleAnalizarContacto = (numeroContacto: string) => {
-    if (
-      confirm(
-        `¿Desea iniciar un nuevo análisis para el número ${numeroContacto}?`
-      )
-    ) {
-      setShowRegistrosModal(false);
-      handleAnalizarTraza(numeroContacto, currentExperticiaId);
+  const handleAnalizarTraza = async (numero: string, experticiaId?: number) => {
+    setAnalisisData(null);
+    setLoadingModal(true);
+    setShowAnalisisModal(true);
+
+    const url = experticiaId
+      ? `/api/analisis-traza/${encodeURIComponent(numero)}?expedienteSujetoId=${experticiaId}`
+      : `/api/analisis-traza/${encodeURIComponent(numero)}`;
+
+    try {
+      const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAnalisisData({ ...data, numeroAnalizado: numero });
+      } else {
+        setShowAnalisisModal(false);
+        toast({
+          title: "Error",
+          description: "No se pudo realizar el análisis de trazabilidad",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      setShowAnalisisModal(false);
+      toast({
+        title: "Error",
+        description: "No se pudo realizar el análisis de trazabilidad",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingModal(false);
     }
   };
 
@@ -395,45 +421,6 @@ export default function Trazabilidad() {
       toast({
         title: "Error",
         description: "No se pudieron obtener las coincidencias",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingModal(false);
-    }
-  };
-
-  const handleAnalizarTraza = async (numero: string, experticiaId?: number) => {
-    setAnalisisData(null);
-    setLoadingModal(true);
-    setShowAnalisisModal(true);
-
-    const url = experticiaId
-      ? `/api/analisis-traza/${encodeURIComponent(numero)}?expedienteSujetoId=${experticiaId}`
-      : `/api/analisis-traza/${encodeURIComponent(numero)}`;
-
-    try {
-      const response = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        });
-
-      if (response.ok) {
-        const data = await response.json();
-        setAnalisisData({ ...data, numeroAnalizado: numero });
-      } else {
-        setShowAnalisisModal(false);
-        toast({
-          title: "Error",
-          description: "No se pudo realizar el análisis de trazabilidad",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      setShowAnalisisModal(false);
-      toast({
-        title: "Error",
-        description: "No se pudo realizar el análisis de trazabilidad",
         variant: "destructive",
       });
     } finally {
@@ -1257,9 +1244,6 @@ export default function Trazabilidad() {
                             <TableHead className="text-xs">Orientación B</TableHead>
                             <TableHead className="text-xs">IMEI A</TableHead>
                             <TableHead className="text-xs">IMEI B</TableHead>
-                            <TableHead className="text-xs text-center">
-                              Acciones
-                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1321,20 +1305,6 @@ export default function Trazabilidad() {
                               </TableCell>
                               <TableCell className="font-mono text-xs">
                                 {registro.imeiB || "N/A"}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Button
-                                  data-testid={`button-trazar-contacto-${idx}`}
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() =>
-                                    handleAnalizarContacto(registro.abonadoB)
-                                  }
-                                  disabled={!registro.abonadoB}
-                                  title="Ver Traza de Contacto"
-                                >
-                                  <Repeat className="h-3 w-3" />
-                                </Button>
                               </TableCell>
                             </TableRow>
                           ))}

@@ -1,4 +1,0 @@
-ok fijate de fomra breve y directa la opcion 1 propones que se cree un campo mas tipo json en la base de datos (en la tabla de experticia) para que se guarde las columnas selecionadas en formato json, no cmabies ni modifiques el codigo
-3 minutes ago
-
-Sí, exactamente. La opción 1 propone agregar un nuevo campo tipo JSON (o JSONB en PostgreSQL) a la tabla de experticias para almacenar las filas/columnas seleccionadas por el usuario en formato JSON. Así cuando se genere el documento posteriormente, esos datos ya estarán guardados y disponibles.

@@ -55,16 +55,16 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[url('undefined.jpeg')] bg-cover bg-center bg-no-repeat flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-2xl bg-white/70 backdrop-blur-sm">
+    <div className="min-h-screen bg-[url('/fondo-login.png')] bg-cover bg-center bg-no-repeat flex items-center justify-center p-4">
+      <Card className="w-full max-w-md shadow-2xl bg-white/50 backdrop-blur-sm">
         <CardHeader className="text-center">
           <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
             <img src="/android-chrome-512x512.png" className="h-45 w-50 flex-shrink-1" alt="Logo" />
           </div>
           <CardTitle className="text-2xl font-bold text-gray-800 mb-2">
-            TER-System
+            SIRAD.CDR
           </CardTitle>
-          <p className="text-gray-600">Sistema de Gestion de Solicitudes de Telecomunicaciones</p>
+          <p className="text-gray-600">Sistema Integrado de Registros y Analisis de Datos CDR</p>
         </CardHeader>
                   {inactivityMessage && (
             <Alert className="mb-4 border-orange-200 bg-orange-50">

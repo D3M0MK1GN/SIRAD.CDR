@@ -900,7 +900,7 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
       
       console.log('✅ [CREATE EXPERTICIA] No hay duplicados, continuando con creación...');
 
-      if (req.user.rol !== 'admin') {
+      if (req.user.rol !== 'admin' && req.user.rol !== 'supervisor') {
         return res.status(403).json({ message: "No tienes permisos para crear experticias" });
       }
 
@@ -1039,7 +1039,7 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
   // PUT /api/experticias/:id - Update experticia
   app.put("/api/experticias/:id", authenticateToken, async (req: any, res) => {
     try {
-      if (req.user.rol !== 'admin') {
+      if (req.user.rol !== 'admin' && req.user.rol !== 'supervisor') {
         return res.status(403).json({ message: "No tienes permisos para editar experticias" });
       }
 
@@ -1096,7 +1096,7 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
   // DELETE /api/experticias/:id - Delete experticia
   app.delete("/api/experticias/:id", authenticateToken, async (req: any, res) => {
     try {
-      if (req.user.rol !== 'admin') {
+      if (req.user.rol !== 'admin' && req.user.rol !== 'supervisor') {
         return res.status(403).json({ message: "No tienes permisos para eliminar experticias" });
       }
 

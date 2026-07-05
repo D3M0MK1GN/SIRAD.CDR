@@ -103,7 +103,7 @@ export function Sidebar() {
             className="h-12 w-12 flex-shrink-0"
             alt="Logo"
           />
-          {isOpen && <span className="font-bold text-lg">TER-System</span>}
+          {isOpen && <span className="font-bold text-lg">SIRAD.CDR</span>}
         </div>
         <Button
           variant="ghost"
