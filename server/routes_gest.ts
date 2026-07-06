@@ -868,41 +868,72 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
     }
   });
 
+  // Función privada reutilizable: valida datos de experticia sin crear nada en BD.
+  // Retorna null si es válido, o { status, message, errors? } si hay un error.
+  async function validarDatosExperticia(body: any, user: any): Promise<{ status: number; message: string; errors?: any } | null> {
+    if (!user || (user.rol !== 'admin' && user.rol !== 'supervisor')) {
+      return { status: 403, message: 'No tienes permisos para crear experticias' };
+    }
+    const validation = insertExperticiasSchema.safeParse(body);
+    if (!validation.success) {
+      return { status: 400, message: 'Datos inválidos', errors: validation.error.errors };
+    }
+    const numeroDictamenLimpio = (body.numeroDictamen || '').trim().toUpperCase();
+    const estadoBody = (body.estado || '').trim();
+    if (!numeroDictamenLimpio && estadoBody !== 'procesando') {
+      return { status: 400, message: 'Número de dictamen es requerido cuando el estado no es procesando' };
+    }
+    if (numeroDictamenLimpio) {
+      const anioActual = new Date().getFullYear();
+      const existeDuplicado = await storage.checkExperticiaDuplicada(numeroDictamenLimpio, anioActual);
+      if (existeDuplicado) {
+        return { status: 400, message: `Ya existe una experticia con el número de dictamen ${numeroDictamenLimpio} para el año ${anioActual}` };
+      }
+    }
+    return null;
+  }
+
+  // POST /api/experticias/validate - Pre-validar datos sin crear nada en BD
+  app.post("/api/experticias/validate", authenticateToken, async (req: any, res) => {
+    try {
+      console.error('[VALIDATE DEBUG] Body recibido:', JSON.stringify({
+        numeroDictamen: req.body?.numeroDictamen,
+        estado: req.body?.estado,
+        operador: req.body?.operador,
+        experto: req.body?.experto,
+        numeroComunicacion: req.body?.numeroComunicacion,
+        motivo: req.body?.motivo,
+        tipoExperticia: req.body?.tipoExperticia,
+        expediente: req.body?.expediente,
+      }, null, 2));
+
+      const error = await validarDatosExperticia(req.body, req.user);
+
+      if (error) {
+        console.error('[VALIDATE DEBUG] Errores de validación:', JSON.stringify(error.errors ?? error.message, null, 2));
+        return res.status(error.status).json({ message: error.message, errors: error.errors });
+      }
+
+      return res.json({ valid: true });
+    } catch (err) {
+      console.error('[VALIDATE DEBUG] Excepción inesperada:', err instanceof Error ? err.message : String(err));
+      return res.status(500).json({ message: 'Error interno del servidor' });
+    }
+  });
+
   // POST /api/experticias - Create new experticia
   app.post("/api/experticias", authenticateToken, async (req: any, res) => {
     try {
-      const numeroSolicitudOriginal = req.body.numeroDictamen;
-      const numeroSolicitudLimpio = (numeroSolicitudOriginal || '').trim().toUpperCase();
       console.log('🔍 [CREATE EXPERTICIA] Inicio del proceso');
-      console.log('📋 [CREATE EXPERTICIA] Número de dictamen recibido:', numeroSolicitudOriginal);
-      console.log('📋 [CREATE EXPERTICIA] Número de dictamen limpio:', numeroSolicitudLimpio);
+      console.log('📋 [CREATE EXPERTICIA] Número de dictamen:', req.body.numeroDictamen);
       console.log('👤 [CREATE EXPERTICIA] Usuario:', req.user?.username, 'Rol:', req.user?.rol);
       const listaResumen = Array.isArray(req.body.listaAnalisis) ? req.body.listaAnalisis : [];
       const totalFilas = listaResumen.reduce((acc: number, item: any) => acc + (item.resultados?.contactos?.datosCrudos?.length ?? 0), 0);
       console.log(`📦 [CREATE EXPERTICIA] listaAnalisis: ${listaResumen.length} número(s), ${totalFilas} filas totales`);
 
-      // Consulta para verificar duplicados en la tabla de EXPERTICIAS (no solicitudes)
-      console.log('🔎 [CREATE EXPERTICIA] Verificando duplicados en tabla experticias...');
-      const resultadoBusqueda = await storage.getExperticias({ 
-        search: numeroSolicitudLimpio,
-        limit: 1 
-      });
-      console.log('✅ [CREATE EXPERTICIA] Resultado de búsqueda:', {
-        total: resultadoBusqueda.total,
-        encontradas: resultadoBusqueda.experticias.length,
-        numerosEncontrados: resultadoBusqueda.experticias.map((e: any) => e.numeroDictamen)
-      });
-
-      if (resultadoBusqueda.total > 0 && resultadoBusqueda.experticias.length > 0) {
-        console.log('⚠️ [CREATE EXPERTICIA] Experticia duplicada detectada para:', numeroSolicitudLimpio);
-        return res.status(400).json({ message: 'Ya existe una experticia con este número de dictamen' });
-      }
-      
-      console.log('✅ [CREATE EXPERTICIA] No hay duplicados, continuando con creación...');
-
-      if (req.user.rol !== 'admin' && req.user.rol !== 'supervisor') {
-        return res.status(403).json({ message: "No tienes permisos para crear experticias" });
-      }
+      // Reutilizar la misma validación del endpoint /validate (defensa en profundidad)
+      const error = await validarDatosExperticia(req.body, req.user);
+      if (error) return res.status(error.status).json({ message: error.message, errors: error.errors });
 
       const validation = insertExperticiasSchema.safeParse(req.body);
       if (!validation.success) {
@@ -1051,6 +1082,20 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
           message: "Datos inválidos", 
           errors: validation.error.errors 
         });
+      }
+
+      // Si se está cambiando el numeroDictamen, verificar duplicado por número + año del registro
+      if (validation.data.numeroDictamen) {
+        const numeroDictamenLimpio = validation.data.numeroDictamen.trim().toUpperCase();
+        const existente = await storage.getExperticia(id);
+        if (!existente) {
+          return res.status(404).json({ message: "Experticia no encontrada" });
+        }
+        const anioRegistro = new Date(existente.createdAt!).getFullYear();
+        const existeDuplicado = await storage.checkExperticiaDuplicada(numeroDictamenLimpio, anioRegistro, id);
+        if (existeDuplicado) {
+          return res.status(400).json({ message: `Ya existe una experticia con el número de dictamen ${numeroDictamenLimpio} para el año ${anioRegistro}` });
+        }
       }
 
       const experticia = await storage.updateExperticia(id, validation.data);

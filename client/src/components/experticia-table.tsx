@@ -30,7 +30,6 @@ import {
   ChevronRight,
   BarChart3,
   CheckCircle,
-  XCircle,
   Clock,
   QrCode,
   FileText,
@@ -86,7 +85,6 @@ const statsConfig = [
     icon: CheckCircle,
     color: "green",
   },
-  { estado: "negativa", label: "Negativas", icon: XCircle, color: "red" },
   { estado: "procesando", label: "Procesando", icon: Clock, color: "yellow" },
   { estado: "qr_ausente", label: "QR Ausente", icon: QrCode, color: "orange" },
 ];
@@ -175,7 +173,7 @@ export function ExperticiasTable({
       {/* SECCIÓN 1: Cards de estadísticas
           Muestra el total de experticias y un desglose por estado
           Actualiza dinámicamente según los datos actuales */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard icon={BarChart3} label="Total" count={total} color="blue" />
         {statsConfig.map((stat) => (
           <StatCard
@@ -221,7 +219,7 @@ export function ExperticiasTable({
           {/* Controles de búsqueda y filtrado
               Cambios en estos selects/inputs disparan handleFilterChange
               que notifica al padre para actualizar los datos */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input

@@ -63,10 +63,27 @@ import {
 } from "@/lib/experticia-utils";
 import { z } from "zod";
 
+// Convierte fecha de YYYY-MM-DD a DD/MM/YYYY; deja pasar cualquier otro formato
+const formatearFechaNacimiento = (fecha: string): string => {
+  if (!fecha) return fecha;
+  const match = fecha.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+  return fecha;
+};
+
 // Esquema de validación para el formulario de experticias
 // Extiende el esquema base con un campo createdAt opcional
 const experticiasFormSchema = insertExperticiasSchema.extend({
   createdAt: z.string().optional(),
+}).superRefine((data, ctx) => {
+  const dictamen = (data.numeroDictamen || '').trim();
+  if (!dictamen && data.estado !== 'procesando') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Número de dictamen es requerido cuando el estado no es 'procesando'",
+      path: ['numeroDictamen'],
+    });
+  }
 });
 
 // Tipo de datos del formulario (inferido del esquema Zod)
@@ -1206,7 +1223,7 @@ export function ExperticiasForm({
               ...prev,
               cedula: cedulaLimpia || prev.cedula,
               nombre: f.nombre || prev.nombre,
-              fechaDeNacimiento: f.fechaNacimiento || prev.fechaDeNacimiento,
+              fechaDeNacimiento: f.fechaNacimiento ? formatearFechaNacimiento(f.fechaNacimiento) : prev.fechaDeNacimiento,
               correo: f.correo || prev.correo,
               direccion: f.direccion || prev.direccion,
               statusLinea: f.statusLinea || prev.statusLinea,
@@ -1372,7 +1389,7 @@ export function ExperticiasForm({
                 ...prevData,
                 cedula: cedulaLimpia || prevData.cedula,
                 nombre: f.nombre || prevData.nombre,
-                fechaDeNacimiento: f.fechaNacimiento || prevData.fechaDeNacimiento,
+                fechaDeNacimiento: f.fechaNacimiento ? formatearFechaNacimiento(f.fechaNacimiento) : prevData.fechaDeNacimiento,
                 correo: f.correo || prevData.correo,
                 direccion: f.direccion || prevData.direccion,
                 statusLinea: f.statusLinea || prevData.statusLinea,
@@ -1817,6 +1834,27 @@ export function ExperticiasForm({
       afiliadosMapRef.current[numeroActual] = afiliadoData;
     }
 
+    // PRE-VALIDACIÓN: verificar dictamen duplicado y campos obligatorios ANTES de
+    // ejecutar PASO 1, para evitar registros huérfanos en expedientes_sujetos.
+    const preValidRes = await fetch("/api/experticias/validate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+      body: JSON.stringify(submitData),
+    });
+    if (!preValidRes.ok) {
+      const preValidError = await preValidRes.json().catch(() => ({}));
+      toast({
+        title: "Error de validación",
+        description: preValidError.message || "Los datos de la experticia no son válidos",
+        variant: "destructive",
+      });
+      isSubmittingRef.current = false;
+      return;
+    }
+
     // PASO 1: Guardar primero los datos del sujeto (personas-casos / expediente_sujeto)
     // y capturar el ID del expediente_sujeto retornado para evitar re-consultas
     // ambiguas en el backend (problema de duplicados por telefono+expediente).
@@ -2002,19 +2040,25 @@ export function ExperticiasForm({
               <FormField
                 control={form.control}
                 name="numeroDictamen"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nº Dictamen*</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="ej: DICT-2024-001"
-                        {...field}
-                        className="font-mono"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const estadoActual = form.watch('estado');
+                  const esProcesando = estadoActual === 'procesando';
+                  return (
+                    <FormItem>
+                      <FormLabel>
+                        Nº Dictamen{esProcesando ? ' (opcional en procesando)' : '*'}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder={esProcesando ? 'Opcional cuando estado es procesando' : 'ej: DICT-2024-001'}
+                          {...field}
+                          className="font-mono"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
 
               <FormField

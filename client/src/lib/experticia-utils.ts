@@ -54,7 +54,6 @@ export const formatStatus = (estado?: string | null) => {
   if (!estado) return "N/A";
   const names: Record<string, string> = {
     completada: "Completada",
-    negativa: "Negativa",
     procesando: "Procesando",
     qr_ausente: "QR Ausente",
   };
@@ -139,7 +138,6 @@ export const downloadFile = async (
 // Se aplican según el valor de estado de cada experticia
 export const STATUS_COLORS: Record<string, string> = {
   completada: "bg-green-100 text-green-800",
-  negativa: "bg-red-100 text-red-800",
   procesando: "bg-yellow-100 text-yellow-800",
   qr_ausente: "bg-orange-100 text-orange-800",
 };
@@ -189,7 +187,6 @@ export const OPERATORS = [
 // Estados posibles de una experticia
 export const STATUSES = [
   { id: "completada", label: "Completada" },
-  { id: "negativa", label: "Negativa" },
   { id: "procesando", label: "Procesando" },
   { id: "qr_ausente", label: "QR Ausente" },
 ];

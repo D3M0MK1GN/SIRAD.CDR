@@ -166,10 +166,11 @@ export interface IStorage {
     limit?: number;
   }): Promise<{ experticias: Experticia[]; total: number }>;
   getExperticia(id: number): Promise<Experticia | undefined>;
+  checkExperticiaDuplicada(numeroDictamen: string, year: number, excludeId?: number): Promise<boolean>;
   createExperticia(experticia: InsertExperticia): Promise<Experticia>;
   updateExperticia(id: number, experticia: Partial<InsertExperticia>): Promise<Experticia | undefined>;
   deleteExperticia(id: number): Promise<boolean>;
-  getExperticiasStats(): Promise<{ total: number; completadas: number; procesando: number; negativas: number; qr_ausente: number }>;
+  getExperticiasStats(): Promise<{ total: number; completadas: number; procesando: number; qr_ausente: number }>;
 
   // Personas Casos - Análisis de Trazabilidad
   getPersonasCasos(filters?: {
@@ -1274,6 +1275,21 @@ export class DatabaseStorage implements IStorage {
     return experticia || undefined;
   }
 
+  async checkExperticiaDuplicada(numeroDictamen: string, year: number, excludeId?: number): Promise<boolean> {
+    const conditions: any[] = [
+      eq(experticias.numeroDictamen, numeroDictamen),
+      sql`EXTRACT(YEAR FROM ${experticias.createdAt}) = ${year}`,
+    ];
+    if (excludeId !== undefined) {
+      conditions.push(ne(experticias.id, excludeId));
+    }
+    const [result] = await db
+      .select({ count: count() })
+      .from(experticias)
+      .where(and(...conditions));
+    return (result?.count ?? 0) > 0;
+  }
+
   async createExperticia(insertExperticia: InsertExperticia): Promise<Experticia> {
     const [experticia] = await db.insert(experticias).values(insertExperticia).returning();
     return experticia;
@@ -1293,19 +1309,18 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount !== null && result.rowCount > 0;
   }
 
-  async getExperticiasStats(): Promise<{ total: number; completadas: number; procesando: number; negativas: number; qr_ausente: number }> {
+  async getExperticiasStats(): Promise<{ total: number; completadas: number; procesando: number; qr_ausente: number }> {
     const rows = await db
       .select({ estado: experticias.estado, cantidad: count() })
       .from(experticias)
       .groupBy(experticias.estado);
 
-    const stats = { total: 0, completadas: 0, procesando: 0, negativas: 0, qr_ausente: 0 };
+    const stats = { total: 0, completadas: 0, procesando: 0, qr_ausente: 0 };
     for (const row of rows) {
       const n = Number(row.cantidad);
       stats.total += n;
       if (row.estado === 'completada') stats.completadas = n;
       else if (row.estado === 'procesando') stats.procesando = n;
-      else if (row.estado === 'negativa') stats.negativas = n;
       else if (row.estado === 'qr_ausente') stats.qr_ausente = n;
     }
     return stats;

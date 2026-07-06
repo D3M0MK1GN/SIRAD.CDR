@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, Plus, Edit, Mail, Clock, LayoutDashboard, Users, Settings, FileText, BarChart3, XCircle, QrCode, TrendingUp, Calendar } from "lucide-react";
+import { CheckCircle, Plus, Edit, Mail, Clock, LayoutDashboard, Users, Settings, FileText, BarChart3, QrCode, TrendingUp, Calendar } from "lucide-react";
 import { Link, useLocation, useSearch } from "wouter";
 import { UserTable } from "@/components/user-table";
 import { UserForm } from "@/components/user-form";
@@ -171,7 +171,7 @@ export default function Dashboard() {
   });
 
   const { data: experticiasStats, isLoading: experticiasLoading } = useQuery<{
-    total: number; completadas: number; procesando: number; negativas: number; qr_ausente: number;
+    total: number; completadas: number; procesando: number; qr_ausente: number;
   }>({
     queryKey: ["/api/experticias/stats"],
   });
@@ -562,11 +562,10 @@ export default function Dashboard() {
             {permissions.canViewAllReports && (
               <div className="mb-8">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Estadísticas de Experticias</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {(() => {
                   const total = experticiasStats?.total || 0;
                   const completadas = experticiasStats?.completadas || 0;
-                  const negativas = experticiasStats?.negativas || 0;
                   const procesando = experticiasStats?.procesando || 0;
                   const qrAusente = experticiasStats?.qr_ausente || 0;
 
@@ -590,16 +589,6 @@ export default function Dashboard() {
                       trend: completadas > 0 ? `${total > 0 ? Math.round((completadas / total) * 100) : 0}%` : "Sin completar",
                       trendText: completadas > 0 ? "tasa de éxito" : "",
                       trendColor: completadas > 0 ? "text-green-600" : "text-gray-600",
-                    },
-                    {
-                      title: "Negativas",
-                      value: negativas,
-                      icon: XCircle,
-                      color: "bg-red-100",
-                      iconColor: "text-red-600",
-                      trend: negativas > 0 ? "Requieren revisión" : "Sin negativas",
-                      trendText: "",
-                      trendColor: negativas > 0 ? "text-red-600" : "text-green-600",
                     },
                     {
                       title: "Procesando",
@@ -667,14 +656,12 @@ export default function Dashboard() {
                       {(() => {
                         const total = experticiasStats?.total || 0;
                         const completadas = experticiasStats?.completadas || 0;
-                        const negativas = experticiasStats?.negativas || 0;
                         const procesando = experticiasStats?.procesando || 0;
                         const qrAusente = experticiasStats?.qr_ausente || 0;
 
                         const estadoExperticias = [
                           { label: "Completadas", value: completadas, color: "bg-green-500" },
                           { label: "Procesando", value: procesando, color: "bg-yellow-500" },
-                          { label: "Negativas", value: negativas, color: "bg-red-500" },
                           { label: "QR Ausente", value: qrAusente, color: "bg-orange-500" },
                         ];
 

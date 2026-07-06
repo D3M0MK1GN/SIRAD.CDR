@@ -6,10 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Download, Upload, FileText, Settings } from "lucide-react";
+import { Trash2, Download, Upload, FileText } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -54,7 +53,6 @@ export function PlantillasWordAdmin() {
     tipoPlantilla: "solicitud",
   });
   const [isUploading, setIsUploading] = useState(false);
-  const [downloadAsPdf, setDownloadAsPdf] = useState(false);
   const [filtroTipoPlantilla, setFiltroTipoPlantilla] = useState("todos");
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -62,34 +60,6 @@ export function PlantillasWordAdmin() {
   const { data: plantillas = [], isLoading } = useQuery({
     queryKey: ["/api/plantillas-word"],
     queryFn: () => apiRequest("/api/plantillas-word"),
-  });
-
-  // Query para obtener la configuración actual del formato de descarga
-  const { data: config } = useQuery({
-    queryKey: ["/api/config/download-format"],
-    queryFn: () => apiRequest("/api/config/download-format"),
-  });
-
-  // Mutation para actualizar la configuración de formato de descarga
-  const updateConfigMutation = useMutation({
-    mutationFn: (downloadAsPdf: boolean) => apiRequest("/api/config/download-format", {
-      method: "POST",
-      body: JSON.stringify({ downloadAsPdf }),
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/config/download-format"] });
-      toast({
-        title: "Configuración actualizada",
-        description: `Los archivos se descargarán ahora en formato ${downloadAsPdf ? 'PDF' : 'Word'}.`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Error al actualizar la configuración",
-        variant: "destructive",
-      });
-    },
   });
 
   const deleteMutation = useMutation({
@@ -214,18 +184,6 @@ export function PlantillasWordAdmin() {
     return tipoInfo ? tipoInfo.label : tipo;
   };
 
-  // Sincronizar el estado local con la configuración del servidor
-  React.useEffect(() => {
-    if (config?.downloadAsPdf !== undefined) {
-      setDownloadAsPdf(config.downloadAsPdf);
-    }
-  }, [config]);
-
-  const handleSwitchChange = (checked: boolean) => {
-    setDownloadAsPdf(checked);
-    updateConfigMutation.mutate(checked);
-  };
-
   // Filtrar plantillas según el tipo seleccionado
   const plantillasFiltradas = plantillas.filter((plantilla: PlantillaWord) => {
     if (filtroTipoPlantilla === "todos") return true;
@@ -325,25 +283,10 @@ export function PlantillasWordAdmin() {
       {/* Templates Table */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Plantillas Existentes
-            </CardTitle>
-            <div className="flex items-center space-x-3">
-              <span className={`text-sm ${!downloadAsPdf ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
-                Word
-              </span>
-              <Switch
-                checked={downloadAsPdf}
-                onCheckedChange={handleSwitchChange}
-                disabled={updateConfigMutation.isPending}
-              />
-              <span className={`text-sm ${downloadAsPdf ? 'font-semibold text-red-600' : 'text-gray-500'}`}>
-                PDF
-              </span>
-            </div>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Plantillas Existentes
+          </CardTitle>
           <div className="flex items-center gap-4 mt-4">
             <Label htmlFor="filtroTipo">Filtrar por tipo:</Label>
             <Select

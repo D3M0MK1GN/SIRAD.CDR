@@ -71,7 +71,7 @@ export const users = pgTable("users", {
 
 export const operadorEnum = pgEnum("operador", ["digitel", "movistar", "movilnet"]);
 export const estadoEnum = pgEnum("estado", ["procesando", "enviada", "respondida", "rechazada"]);
-export const estadoExperticiasEnum = pgEnum("estado_experticias", ["completada", "negativa", "procesando", "qr_ausente"]);
+export const estadoExperticiasEnum = pgEnum("estado_experticias", ["completada", "procesando", "qr_ausente"]);
 export const tipoPlantillaWordEnum = pgEnum("tipo_plantilla_word", ["solicitud", "experticia"]);
 
 
@@ -289,7 +289,7 @@ export const insertConfiguracionSistemaSchema = createInsertSchema(configuracion
 // Tabla de Experticias
 export const experticias = pgTable("experticias", {
   id: serial("id").primaryKey(),
-  numeroDictamen: text("numero_dictamen").notNull().unique(),
+  numeroDictamen: text("numero_dictamen").notNull(),
   experto: text("experto").notNull(),
   numeroComunicacion: text("numero_comunicacion").notNull(),
   fechaComunicacion: text("fecha_comunicacion"),
@@ -326,9 +326,9 @@ export const insertExperticiasSchema = createInsertSchema(experticias).omit({
   updatedAt: true,
 }).extend({
   numeroDictamen: z.string()
-    .min(1, "Número de dictamen es requerido")
     .max(100, "Número de dictamen muy largo")
-    .transform(val => val.trim()),
+    .transform(val => val.trim())
+    .default(''),
   experto: z.string()
     .min(1, "Experto es requerido")
     .max(200, "Nombre del experto muy largo")
