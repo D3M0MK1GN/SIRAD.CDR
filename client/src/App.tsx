@@ -15,6 +15,7 @@ import Trazabilidad from "@/pages/trazabilidad";
 import Templates from "@/pages/templates";
 import Users from "@/pages/users";
 import ChatbotPage from "@/pages/chatbot";
+import Monitoreo from "@/pages/monitoreo";
 import NotFound from "@/pages/not-found";
 
 function ProtectedRoute({
@@ -84,6 +85,11 @@ function Router() {
       <Route path="/usuarios">
         <ProtectedRoute requirePermission="canViewUsers">
           <Users />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/monitoreo">
+        <ProtectedRoute requirePermission="canViewUsers">
+          <Monitoreo />
         </ProtectedRoute>
       </Route>
       <Route path="/">

@@ -3348,5 +3348,55 @@
             }
         },
         "success": true
+    },
+    {
+        "timestamp": "2026-07-07T11:26:33.350122",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "23482578",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=1966&token=f82f78de1c215aae3d0c30a4e020b561&nacionalidad=V&cedula=23482578",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 23482578,
+                "fecha_nac": "1993-02-26",
+                "rif": "V234825786",
+                "cne": {
+                    "estado": "LARA",
+                    "municipio": "IRIBARREN",
+                    "parroquia": "EL CUJI",
+                    "centro_electoral": "UNIDAD EDUCATIVA BOLIVARIANA LA PLAYA"
+                },
+                "primer_apellido": "TORREALBA",
+                "segundo_apellido": "RODRIGUEZ",
+                "primer_nombre": "EDUARD",
+                "segundo_nombre": "PASTOR",
+                "request_date": "2026-07-07T15:26:33.289Z"
+            }
+        },
+        "success": true
+    },
+    {
+        "timestamp": "2026-07-07T11:27:56.037157",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "27629686",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=1966&token=f82f78de1c215aae3d0c30a4e020b561&nacionalidad=V&cedula=27629686",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 27629686,
+                "fecha_nac": "1998-09-14",
+                "rif": "V276296864",
+                "primer_apellido": "RODRIGUEZ",
+                "segundo_apellido": "TIMAURE",
+                "primer_nombre": "REINEL",
+                "segundo_nombre": "RAFAEL",
+                "request_date": "2026-07-07T15:27:55.988Z"
+            }
+        },
+        "success": true
     }
 ]

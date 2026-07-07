@@ -18,6 +18,7 @@ import {
   Bot,
   Atom,
   GitBranch,
+  ShieldAlert,
 } from "lucide-react";
 
 const navItems = [
@@ -56,6 +57,12 @@ const navItems = [
     href: "/chatbot",
     icon: Bot,
     permission: "canViewDashboard" as const,
+  },
+  {
+    title: "Centro de Monitoreo",
+    href: "/monitoreo",
+    icon: ShieldAlert,
+    permission: "canViewUsers" as const, // solo admin
   },
 ];
 
