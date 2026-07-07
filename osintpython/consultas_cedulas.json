@@ -3203,5 +3203,150 @@
             }
         },
         "success": true
+    },
+    {
+        "timestamp": "2026-07-06T17:36:07.986054",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "28609925",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=1966&token=f82f78de1c215aae3d0c30a4e020b561&nacionalidad=V&cedula=28609925",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 28609925,
+                "fecha_nac": "2001-06-26",
+                "rif": "V286099250",
+                "primer_apellido": "JIMENEZ",
+                "segundo_apellido": "MENDOZA",
+                "primer_nombre": "RAUL",
+                "segundo_nombre": "ANTONIO",
+                "request_date": "2026-07-06T21:36:07.904Z"
+            }
+        }
+    },
+    {
+        "timestamp": "2026-07-06T17:36:22.929867",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "27217572",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=1966&token=f82f78de1c215aae3d0c30a4e020b561&nacionalidad=V&cedula=27217572",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 27217572,
+                "fecha_nac": "2000-04-22",
+                "rif": "V272175728",
+                "primer_apellido": "CRESPO",
+                "segundo_apellido": "RODRIGUEZ",
+                "primer_nombre": "CRISMARY",
+                "segundo_nombre": "YESELYS",
+                "request_date": "2026-07-06T21:36:22.853Z"
+            }
+        }
+    },
+    {
+        "timestamp": "2026-07-06T17:37:21.539293",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "23573573",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=1966&token=f82f78de1c215aae3d0c30a4e020b561&nacionalidad=V&cedula=23573573",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 23573573,
+                "fecha_nac": "1988-03-07",
+                "rif": "V235735731",
+                "cne": {
+                    "estado": "PORTUGUESA",
+                    "municipio": "ARAURE",
+                    "parroquia": "ARAURE",
+                    "centro_electoral": "UNIDAD EDUCATIVA NACIONAL LA LUCIA"
+                },
+                "primer_apellido": "PERALTA",
+                "segundo_apellido": "PAGUA",
+                "primer_nombre": "DEISY",
+                "segundo_nombre": "JOSEFINA",
+                "request_date": "2026-07-06T21:37:21.463Z"
+            }
+        }
+    },
+    {
+        "timestamp": "2026-07-06T17:37:48.221897",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "23573573",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=1966&token=f82f78de1c215aae3d0c30a4e020b561&nacionalidad=V&cedula=23573573",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 23573573,
+                "fecha_nac": "1988-03-07",
+                "rif": "V235735731",
+                "cne": {
+                    "estado": "PORTUGUESA",
+                    "municipio": "ARAURE",
+                    "parroquia": "ARAURE",
+                    "centro_electoral": "UNIDAD EDUCATIVA NACIONAL LA LUCIA"
+                },
+                "primer_apellido": "PERALTA",
+                "segundo_apellido": "PAGUA",
+                "primer_nombre": "DEISY",
+                "segundo_nombre": "JOSEFINA",
+                "request_date": "2026-07-06T21:37:48.146Z"
+            }
+        }
+    },
+    {
+        "timestamp": "2026-07-06T17:39:43.769018",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "11586516",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=1966&token=f82f78de1c215aae3d0c30a4e020b561&nacionalidad=V&cedula=11586516",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 11586516,
+                "fecha_nac": "1974-11-23",
+                "rif": "V115865168",
+                "cne": {
+                    "estado": "LARA",
+                    "municipio": "JIMENEZ",
+                    "parroquia": "JUAN B RODRIGUEZ",
+                    "centro_electoral": "CENTRO DE EDUCACION INICIAL ANA GRANADO (FUNDACION DEL NIÑO)"
+                },
+                "primer_apellido": "MENDOZA",
+                "segundo_apellido": "PEREZ",
+                "primer_nombre": "YOLEIDA",
+                "segundo_nombre": "JOSEFINA",
+                "request_date": "2026-07-06T21:39:43.694Z"
+            }
+        }
+    },
+    {
+        "timestamp": "2026-07-07T08:55:40.343222",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "30025751",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=1966&token=f82f78de1c215aae3d0c30a4e020b561&nacionalidad=V&cedula=30025751",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 30025751,
+                "fecha_nac": "2003-05-17",
+                "rif": "V300257514",
+                "primer_apellido": "MENDOZA",
+                "segundo_apellido": "CORRO",
+                "primer_nombre": "YUSBELY",
+                "segundo_nombre": "DIVEANA",
+                "request_date": "2026-07-07T12:55:41.140Z"
+            }
+        },
+        "success": true
     }
 ]

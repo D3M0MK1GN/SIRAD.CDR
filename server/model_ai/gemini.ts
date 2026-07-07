@@ -280,23 +280,46 @@ function formatCedulaResponse(data: any, nacionalidad: string, cedula: string): 
         extractedData = data.data;
     }
 
-    // Campos de información personal
-    const fields = [
-        { keys: ['primer_nombre', 'nombre'], label: '👤 **Nombre:**' },
-        { keys: ['segundo_nombre'], label: '**Segundo Nombre:**' },
-        { keys: ['primer_apellido', 'apellido'], label: '**Primer Apellido:**' },
-        { keys: ['segundo_apellido'], label: '**Segundo Apellido:**' },
-        { keys: ['fecha_nac', 'fecha_nacimiento'], label: '📅 **Fecha de Nacimiento:**' },
+    // Nombre y apellidos por separado
+    const primerNombre    = extractedData['primer_nombre']    || extractedData['nombre']   || '';
+    const segundoNombre   = extractedData['segundo_nombre']   || '';
+    const primerApellido  = extractedData['primer_apellido']  || extractedData['apellido'] || '';
+    const segundoApellido = extractedData['segundo_apellido'] || '';
+    const nombre    = [primerNombre, segundoNombre].filter(Boolean).join(' ').trim();
+    const apellidos = [primerApellido, segundoApellido].filter(Boolean).join(' ').trim();
+
+    // Fecha formateada de YYYY-MM-DD a DD/MM/YYYY
+    const fechaRaw = extractedData['fecha_nac'] || extractedData['fecha_nacimiento'] || '';
+    let fechaFormateada = fechaRaw;
+    if (fechaRaw && /^\d{4}-\d{2}-\d{2}$/.test(fechaRaw)) {
+        const [anio, mes, dia] = fechaRaw.split('-');
+        fechaFormateada = `${dia}/${mes}/${anio}`;
+    }
+
+    let hasValidData = false;
+    if (nombre) {
+        response += `👤 **Nombre:** ${nombre}\n`;
+        hasValidData = true;
+    }
+    if (apellidos) {
+        response += `📝 **Apellidos:** ${apellidos}\n`;
+        hasValidData = true;
+    }
+    if (fechaFormateada) {
+        response += `📅 **Fecha de Nacimiento:** ${fechaFormateada}\n`;
+        hasValidData = true;
+    }
+
+    // Resto de campos
+    const camposExtra = [
         { keys: ['rif'], label: '🆔 **RIF:**' },
         { keys: ['nacionalidad'], label: '🏳️ **Nacionalidad:**' },
         { keys: ['cedula'], label: '📋 **Cédula:**' }
     ];
-
-    let hasValidData = false;
-    fields.forEach(field => {
-        const value = field.keys.find(key => extractedData[key]);
-        if (value && extractedData[value]) {
-            response += `${field.label} ${extractedData[value]}\n`;
+    camposExtra.forEach(field => {
+        const key = field.keys.find(k => extractedData[k]);
+        if (key && extractedData[key]) {
+            response += `${field.label} ${extractedData[key]}\n`;
             hasValidData = true;
         }
     });
