@@ -1,10 +1,10 @@
-# TER-System
+# SIRAD.CDR
 
-Sistema de Gestión de Solicitudes de Telecomunicaciones para entidades de seguridad.
+Sistema Integrado de Registro y Analisis de Datos CDR.
 
 ## Descripción
 
-TER-System es una aplicación web full-stack en español diseñada para gestionar, rastrear y analizar solicitudes de telecomunicaciones dirigidas a operadores como Digitel, Movistar y Movilnet. Permite crear usuarios, administrar solicitudes, generar experticias, analizar archivos Excel (BTS, contactos frecuentes, IMEIs, georreferenciación) y consultar información asociada.
+SIRAD.CDR es una aplicación web full-stack en español diseñada para gestionar, rastrear y analizar datos de telecomunicaciones (CDR) entregadas por las operadoras como Digitel, Movistar y Movilnet. Permite crear usuarios, administrar solicitudes, generar experticias, analizar archivos Excel, a fin de obtener informacion de Inteligencia (Identificacion BTS, contactos frecuentes, IMEIs, georreferenciación) y consultar información asociada.
 
 El sistema integra dos servicios principales:
 
@@ -64,26 +64,24 @@ El sistema integra dos servicios principales:
 
 ### Pasos
 
-1. **Clonar o importar el proyecto.**
-
-2. **Instalar dependencias de Node.js:**
+1. **Instalar dependencias de Node.js:**
 
    ```bash
    npm install
    ```
 
-3. **Instalar dependencias de Python:**
+2. **Instalar dependencias de Python:**
 
    ```bash
    pip install fastapi uvicorn pandas numpy tabulate requests openpyxl
    ```
 
-   O, si usas Replit, las dependencias se instalan automáticamente desde `pyproject.toml`.
+   tambien puedes identificar el archivo `pyproject.toml`.
 
-4. **Configurar variables de entorno.**
+3. **Configurar variables de entorno. (El isstema ya tiene unas por defecto, creadas por e ladministrador)**
 
-   Crea un archivo `.env` con al menos:
-
+   Crea un archivo `.env` con al menos: (Ya existe uno puede ser usado para un despliegue rapido)
+    ejemplo
    ```env
    NODE_ENV=development
    PORT=5000
@@ -91,19 +89,17 @@ El sistema integra dos servicios principales:
    GEMINI_API_KEY=tu_api_key_de_gemini
    ```
 
-   Replit gestiona automáticamente `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD` y `PGDATABASE`. En producción, usa Replit Secrets para las variables sensibles.
-
-5. **Crear las tablas de la base de datos:**
+4. **Crear las tablas de la base de datos:**
 
    ```bash
    npm run db:push
    ```
 
-6. **Crear el primer usuario administrador.**
+5. **Crear el primer usuario administrador.**
 
-   El sistema no incluye un usuario por defecto. Debes crear uno en la tabla `users` con rol `admin` y contraseña hasheada con bcrypt.
+   El sistema incluye un usuario por defecto
 
-7. **Iniciar el servidor de desarrollo:**
+6. **Iniciar el servidor de desarrollo:**
 
    ```bash
    npm run dev
@@ -130,5 +126,4 @@ El sistema integra dos servicios principales:
 - El esquema de base de datos está definido en `shared/schema.ts` e incluye tablas de usuarios, solicitudes, experticias, personas/casos, registros de comunicación, plantillas y más.
 
 ## Licencia
-
-MIT
+dikiller

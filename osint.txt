@@ -1,2 +1,0 @@
-ejemlpo para el uso de api = http://api.cedula.com.ve/api/v1?app_id=1184&token=64c2f1ca6f9abe04b74e386638816573&nacionalidad=V&cedula=28609925
-ejemplo para uso en curl = curl 'http://api.cedula.com.ve/api/v1?app_id=1184&token=64c2f1ca6f9abe04b74e386638816573&nacionalidad=V&cedula=16667970'

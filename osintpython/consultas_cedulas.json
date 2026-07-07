@@ -3398,5 +3398,32 @@
             }
         },
         "success": true
+    },
+    {
+        "timestamp": "2026-07-07T14:05:58.674632",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "3089296",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=1966&token=f82f78de1c215aae3d0c30a4e020b561&nacionalidad=V&cedula=3089296",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 3089296,
+                "fecha_nac": "1948-02-28",
+                "rif": "V030892964",
+                "cne": {
+                    "estado": "LARA",
+                    "municipio": "IRIBARREN",
+                    "parroquia": "LA CONCEPCION",
+                    "centro_electoral": "GRUPO ESCOLAR CIUDAD BOLIVAR"
+                },
+                "primer_apellido": "MENDOZA",
+                "primer_nombre": "RAMON",
+                "segundo_nombre": "EUCLIDES",
+                "request_date": "2026-07-07T18:05:58.605Z"
+            }
+        },
+        "success": true
     }
 ]

@@ -59,12 +59,12 @@ export default function Login() {
       <Card className="w-full max-w-md shadow-2xl bg-white/50 backdrop-blur-sm">
         <CardHeader className="text-center">
           <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <img src="/android-chrome-512x512.png" className="h-45 w-50 flex-shrink-1" alt="Logo" />
+            <img src="/android-chrome-512x512.png" className="h-45 w-12 flex-shrink-1" alt="Logo" />
           </div>
           <CardTitle className="text-2xl font-bold text-gray-800 mb-2">
             SIRAD.CDR
           </CardTitle>
-          <p className="text-gray-600">Sistema Integrado de Registros y Analisis de Datos CDR</p>
+          <p className="text-gray-600">Sistema Integrado de Registro y Analisis de Datos CDR</p>
         </CardHeader>
                   {inactivityMessage && (
             <Alert className="mb-4 border-orange-200 bg-orange-50">
@@ -125,9 +125,9 @@ export default function Login() {
             </Button>
           </form>
           
-          <div className="mt-6 text-center text-sm text-gray-500">
+          <div className="mt-6 text-center text-sm text-gray-600">
             <Shield className="inline mr-1 h-4 w-4" />
-            CICPC - Dios Con Nosotros / D1killer
+            Information Used Well is Power / D1killer
           </div>
         </CardContent>
       </Card>
