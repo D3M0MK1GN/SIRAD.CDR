@@ -5,8 +5,8 @@
 
 import { Router, type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { db } from "./db";
-import { storage } from "./storage";
+import { db } from "../db";
+import { storage } from "../storage";
 import { logJobsManager } from "./logJobs";
 import { logger } from "./logger";
 import { logsActividad, logsErrores, logsSeguridad, metricasActividadDiaria } from "@shared/schema";

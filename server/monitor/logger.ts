@@ -5,7 +5,7 @@
  */
 
 import os from "os";
-import { db } from "./db";
+import { db } from "../db";
 import {
   logsActividad,
   logsErrores,

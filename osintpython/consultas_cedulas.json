@@ -3425,5 +3425,91 @@
             }
         },
         "success": true
+    },
+    {
+        "timestamp": "2026-07-08T11:08:49.979731",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "26555846",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=1966&token=f82f78de1c215aae3d0c30a4e020b561&nacionalidad=V&cedula=26555846",
+        "resultado_api": {
+            "error": true,
+            "data": false,
+            "error_str": "RECORD_NOT_FOUND"
+        },
+        "success": true
+    },
+    {
+        "timestamp": "2026-07-08T11:08:59.976316",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "28609925",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=1966&token=f82f78de1c215aae3d0c30a4e020b561&nacionalidad=V&cedula=28609925",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 28609925,
+                "fecha_nac": "2001-06-26",
+                "rif": "V286099250",
+                "primer_apellido": "JIMENEZ",
+                "segundo_apellido": "MENDOZA",
+                "primer_nombre": "RAUL",
+                "segundo_nombre": "ANTONIO",
+                "request_date": "2026-07-08T15:08:59.953Z"
+            }
+        },
+        "success": true
+    },
+    {
+        "timestamp": "2026-07-08T11:09:15.933863",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "26555846",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=1966&token=f82f78de1c215aae3d0c30a4e020b561&nacionalidad=V&cedula=26555846",
+        "resultado_api": {
+            "error": true,
+            "data": false,
+            "error_str": "RECORD_NOT_FOUND"
+        },
+        "success": true
+    },
+    {
+        "timestamp": "2026-07-08T11:47:18.483291",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "6960481",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=1966&token=f82f78de1c215aae3d0c30a4e020b561&nacionalidad=V&cedula=6960481",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 6960481,
+                "fecha_nac": "1964-06-22",
+                "rif": "V069604818",
+                "cne": {
+                    "estado": "DTTO. CAPITAL",
+                    "municipio": "LIBERTADOR",
+                    "parroquia": "EL VALLE",
+                    "centro_electoral": "CENTRO DE EDUCACION INICIAL ISABEL PELLIN"
+                },
+                "primer_apellido": "PEREZ",
+                "segundo_apellido": "SILVA",
+                "primer_nombre": "JOSE",
+                "segundo_nombre": "RAFAEL",
+                "request_date": "2026-07-08T15:47:18.432Z"
+            }
+        },
+        "success": true
+    },
+    {
+        "timestamp": "2026-07-08T11:53:12.752330",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "14739790",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=1966&token=f82f78de1c215aae3d0c30a4e020b561&nacionalidad=V&cedula=14739790",
+        "resultado_api": {
+            "error": true,
+            "data": false,
+            "error_str": "MAX_NUM_REQUEST"
+        },
+        "success": true
     }
 ]

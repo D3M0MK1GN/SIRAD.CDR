@@ -31,7 +31,8 @@ import { registerChatbotRoutes } from "./model_ai/routesAI";
 import { registerStatsRoutes } from "./routes-stats";
 import { registerAnalisisRoutes } from "./routesAnalisi";
 import { parseWithPrefixes } from '../tools/utils_I';
-import { logger } from "./logger";
+import { logger } from "./monitor/logger";
+import { registerLogsRoutes } from "./monitor/routes-logs";
 
 // import { readFileSync, existsSync } from 'fs';
 import PizZip from 'pizzip';
@@ -300,11 +301,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Credenciales inválidas" });
       }
 
-      // Check if user already has an active session
+      // La contraseña ya fue validada en este punto: si existe una sesión activa
+      // previa (por ejemplo, el navegador se cerró sin cerrar sesión), se cierra
+      // automáticamente esa sesión anterior y se continúa con el nuevo inicio.
       const hasActiveSession = await storage.isSessionActive(updatedUser.id);
       if (hasActiveSession) {
-        return res.status(401).json({ 
-          message: "Ya tienes una sesión activa. Cierra la sesión actual antes de iniciar una nueva."
+        await storage.clearUserSession(updatedUser.id);
+        logger.seguridad({
+          usuarioId: updatedUser.id,
+          username: updatedUser.username,
+          tipo: "Sesión anterior cerrada automáticamente",
+          ip: clientIp,
+          detalle: "Se cerró una sesión activa previa al iniciar sesión nuevamente con credenciales válidas",
+          nivel: "bajo",
         });
       }
 
@@ -1311,6 +1320,10 @@ app.post("/api/plantillas-word/by-expertise/:tipoExperticia/generate", authentic
   // Registrar rutas de estadísticas
   registerStatsRoutes(app, authenticateToken);
   registerAnalisisRoutes(app, authenticateToken, requireAdmin, uploadData);
+
+  // Registrar rutas del sistema de logs híbrido (Centro de Monitoreo)
+  registerLogsRoutes(app);
+
   const httpServer = createServer(app);
   return httpServer;
 }

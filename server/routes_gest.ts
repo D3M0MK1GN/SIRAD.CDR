@@ -11,7 +11,7 @@ import { parseWithPrefixes } from '../tools/utils_I';
 import { experticias, insertExperticiasSchema, expedientesSujetos } from '../shared/schema';
 import { db } from './db';
 import { and, eq, sql } from 'drizzle-orm';
-import { logger } from './logger';
+import { logger } from './monitor/logger';
 
 // Al inicio del archivo routes_gest.ts
 const swiPdf = {

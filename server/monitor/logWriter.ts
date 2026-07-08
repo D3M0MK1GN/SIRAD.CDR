@@ -6,9 +6,9 @@
 
 import fs from "fs/promises";
 import path from "path";
-import { db } from "./db";
+import { db } from "../db";
 import { logsActividad, logsErrores, logsSeguridad } from "@shared/schema";
-import { desc, gte } from "drizzle-orm";
+import { desc, gte, lte } from "drizzle-orm";
 
 const LOGS_DIR = path.join(process.cwd(), "logs");
 
