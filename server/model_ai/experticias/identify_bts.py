@@ -426,6 +426,25 @@ class Exper_Frecuentes:
             if operador_key == 'MOVILNET':
                 print(f"[MOVILNET] Muestra CONTACTO: {datos_interes['CONTACTO'].head(3).tolist()}")
 
+                # --- FILTRAR LLAMADAS DUPLICADAS SIN DIRECCIÓN A/B ---
+                # En Movilnet, cada llamada real puede generar 2 o 3 filas idénticas
+                # (mismo Asubs/Bsubs/Fecha/Hora/Duración), pero solo una de esas filas
+                # trae la Dirección A o Dirección B rellenada. Las demás son duplicados
+                # sin información de ubicación y deben descartarse para no inflar el
+                # conteo de contactos frecuentes ni la tabla de datos crudos.
+                # Este problema solo ocurre con llamadas, no con SMS.
+                es_llamada = datos_interes['TIPO TRANSACCIÓN'].isin(['LLAMADA ENTRANTE', 'LLAMADA SALIENTE'])
+
+                dir_a = datos_interes['Dirección A'] if 'Dirección A' in datos_interes.columns else pd.Series('', index=datos_interes.index)
+                dir_b = datos_interes['Dirección B'] if 'Dirección B' in datos_interes.columns else pd.Series('', index=datos_interes.index)
+                sin_direccion = (dir_a.astype(str).str.strip() == '') & (dir_b.astype(str).str.strip() == '')
+
+                filas_antes = len(datos_interes)
+                datos_interes = datos_interes[~(es_llamada & sin_direccion)].copy()
+                filas_descartadas = filas_antes - len(datos_interes)
+                if filas_descartadas > 0:
+                    print(f"[MOVILNET] Descartadas {filas_descartadas} filas de llamadas duplicadas sin Dirección A/B")
+
             # --- CÁLCULO DE FRECUENCIAS (SÚPER RÁPIDO) ---
             frecuencias = datos_interes.groupby('CONTACTO').agg(
                 frecuencia=('CONTACTO', 'size'),

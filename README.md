@@ -73,7 +73,7 @@ El sistema integra dos servicios principales:
 2. **Instalar dependencias de Python:**
 
    ```bash
-   pip install fastapi uvicorn pandas numpy tabulate requests openpyxl
+   pip install fastapi uvicorn pandas numpy tabulate requests openpyxl xlrd
    ```
 
    tambien puedes identificar el archivo `pyproject.toml`.

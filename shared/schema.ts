@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, pgEnum, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, pgEnum, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -73,6 +73,21 @@ export const operadorEnum = pgEnum("operador", ["digitel", "movistar", "movilnet
 export const estadoEnum = pgEnum("estado", ["procesando", "enviada", "respondida", "rechazada"]);
 export const estadoExperticiasEnum = pgEnum("estado_experticias", ["completada", "procesando", "qr_ausente"]);
 export const tipoPlantillaWordEnum = pgEnum("tipo_plantilla_word", ["solicitud", "experticia"]);
+
+// Enums para sistema de logs híbrido (RFC 5424)
+export const logSeverityEnum = pgEnum("log_severity", [
+  "emergency",
+  "alert",
+  "critical",
+  "error",
+  "warning",
+  "notice",
+  "info",
+  "debug",
+]);
+export const logResultadoEnum = pgEnum("log_resultado", ["exitoso", "error", "advertencia"]);
+export const logNivelSeguridadEnum = pgEnum("log_nivel_seguridad", ["bajo", "medio", "alto"]);
+export const logTipoMetricaEnum = pgEnum("log_tipo_metrica", ["actividad", "trazabilidad"]);
 
 
 export const solicitudes = pgTable("solicitudes", {
@@ -387,6 +402,8 @@ export const usersRelationsComplete = relations(users, ({ many }) => ({
   chatbotMensajes: many(chatbotMensajes),
   configuracionSistema: many(configuracionSistema),
   experticias: many(experticias),
+  logsActividad: many(logsActividad),
+  logsSeguridad: many(logsSeguridad),
 }));
 
 // Auth schemas
@@ -604,3 +621,139 @@ export type PersonaTelefono = typeof personaTelefonos.$inferSelect;
 export type InsertPersonaTelefono = z.infer<typeof insertPersonaTelefonoSchema>;
 export type RegistroComunicacion = typeof registrosComunicacion.$inferSelect;
 export type InsertRegistroComunicacion = z.infer<typeof insertRegistroComunicacionSchema>;
+
+// ============================================
+// SISTEMA DE LOGS HÍBRIDO (RFC 5424)
+// ============================================
+
+export const logsActividad = pgTable("logs_actividad", {
+  id: serial("id").primaryKey(),
+  // Campos RFC 5424 base
+  severity: integer("severity").notNull(), // 0=Emergency ... 7=Debug
+  severityLabel: logSeverityEnum("severity_label").notNull(),
+  facility: text("facility").notNull(), // auth, authpriv, local0, local1...
+  hostname: text("hostname").notNull(),
+  appName: text("app_name").notNull(),
+  procid: text("procid"),
+  msgid: text("msgid"),
+  timestampRfc5424: timestamp("timestamp_rfc5424").notNull(),
+  // Campos propios de la aplicación
+  usuarioId: integer("usuario_id").references(() => users.id, { onDelete: "set null" }),
+  username: text("username"),
+  accion: text("accion").notNull(),
+  modulo: text("modulo").notNull(),
+  resultado: logResultadoEnum("resultado").notNull(),
+  ip: text("ip"),
+  metadata: jsonb("metadata"), // datos estructurados de auditoría
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  createdAtIdx: index("idx_logs_actividad_created_at").on(table.createdAt),
+  usuarioIdIdx: index("idx_logs_actividad_usuario_id").on(table.usuarioId),
+  moduloIdx: index("idx_logs_actividad_modulo").on(table.modulo),
+  accionIdx: index("idx_logs_actividad_accion").on(table.accion),
+}));
+
+export const logsErrores = pgTable("logs_errores", {
+  id: serial("id").primaryKey(),
+  severity: integer("severity").notNull(),
+  severityLabel: logSeverityEnum("severity_label").notNull(),
+  facility: text("facility").notNull(),
+  hostname: text("hostname").notNull(),
+  appName: text("app_name").notNull(),
+  procid: text("procid"),
+  msgid: text("msgid"),
+  timestampRfc5424: timestamp("timestamp_rfc5424").notNull(),
+  servicio: text("servicio").notNull(), // Node, Python, PostgreSQL
+  endpoint: text("endpoint"),
+  mensaje: text("mensaje").notNull(),
+  detalle: text("detalle"),
+  revisado: boolean("revisado").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  createdAtIdx: index("idx_logs_errores_created_at").on(table.createdAt),
+  servicioIdx: index("idx_logs_errores_servicio").on(table.servicio),
+  revisadoIdx: index("idx_logs_errores_revisado").on(table.revisado),
+}));
+
+export const logsSeguridad = pgTable("logs_seguridad", {
+  id: serial("id").primaryKey(),
+  severity: integer("severity").notNull(),
+  severityLabel: logSeverityEnum("severity_label").notNull(),
+  facility: text("facility").notNull(),
+  hostname: text("hostname").notNull(),
+  appName: text("app_name").notNull(),
+  procid: text("procid"),
+  msgid: text("msgid"),
+  timestampRfc5424: timestamp("timestamp_rfc5424").notNull(),
+  tipo: text("tipo").notNull(), // Login fallido, IP desconocida, etc.
+  usuarioId: integer("usuario_id").references(() => users.id, { onDelete: "set null" }),
+  username: text("username"),
+  ip: text("ip"),
+  detalle: text("detalle"),
+  nivel: logNivelSeguridadEnum("nivel").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  createdAtIdx: index("idx_logs_seguridad_created_at").on(table.createdAt),
+  usuarioIdIdx: index("idx_logs_seguridad_usuario_id").on(table.usuarioId),
+  nivelIdx: index("idx_logs_seguridad_nivel").on(table.nivel),
+}));
+
+export const metricasActividadDiaria = pgTable("metricas_actividad_diaria", {
+  id: serial("id").primaryKey(),
+  fecha: timestamp("fecha").notNull(),
+  hora: integer("hora"), // null para agregado diario
+  tipo: logTipoMetricaEnum("tipo").notNull(),
+  conteo: integer("conteo").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  fechaIdx: index("idx_metricas_fecha").on(table.fecha),
+  tipoIdx: index("idx_metricas_tipo").on(table.tipo),
+  fechaHoraIdx: index("idx_metricas_fecha_hora").on(table.fecha, table.hora),
+  uniqueFechaHoraTipo: uniqueIndex("idx_metricas_unique_fecha_hora_tipo").on(table.fecha, table.hora, table.tipo),
+}));
+
+// Insert schemas
+export const insertLogsActividadSchema = createInsertSchema(logsActividad).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLogsErroresSchema = createInsertSchema(logsErrores).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLogsSeguridadSchema = createInsertSchema(logsSeguridad).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertMetricasActividadDiariaSchema = createInsertSchema(metricasActividadDiaria).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types
+export type LogsActividad = typeof logsActividad.$inferSelect;
+export type InsertLogsActividad = z.infer<typeof insertLogsActividadSchema>;
+export type LogsErrores = typeof logsErrores.$inferSelect;
+export type InsertLogsErrores = z.infer<typeof insertLogsErroresSchema>;
+export type LogsSeguridad = typeof logsSeguridad.$inferSelect;
+export type InsertLogsSeguridad = z.infer<typeof insertLogsSeguridadSchema>;
+export type MetricasActividadDiaria = typeof metricasActividadDiaria.$inferSelect;
+export type InsertMetricasActividadDiaria = z.infer<typeof insertMetricasActividadDiariaSchema>;
+
+// Relations
+export const logsActividadRelations = relations(logsActividad, ({ one }) => ({
+  usuario: one(users, {
+    fields: [logsActividad.usuarioId],
+    references: [users.id],
+  }),
+}));
+
+export const logsSeguridadRelations = relations(logsSeguridad, ({ one }) => ({
+  usuario: one(users, {
+    fields: [logsSeguridad.usuarioId],
+    references: [users.id],
+  }),
+}));

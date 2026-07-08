@@ -11,6 +11,7 @@ import { parseWithPrefixes } from '../tools/utils_I';
 import { experticias, insertExperticiasSchema, expedientesSujetos } from '../shared/schema';
 import { db } from './db';
 import { and, eq, sql } from 'drizzle-orm';
+import { logger } from './logger';
 
 // Al inicio del archivo routes_gest.ts
 const swiPdf = {
@@ -330,14 +331,6 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
   // Endpoint PROXY para analizar Contactos Frecuentes (redirecciona a Python)
   app.post("/api/experticias/analizar-contactos-frecuentes", authenticateToken, async (req: any, res) => {
     try {
-      console.log("[SERVIDOR CF] Recibida petición en /api/experticias/analizar-contactos-frecuentes");
-      console.log("[SERVIDOR CF] Body recibido:", {
-        archivo_excel: req.body?.archivo_excel,
-        archivo_base64: req.body?.archivo_base64 ? `[base64 ${req.body.archivo_base64.length} chars]` : "NO ENVIADO",
-        numero_buscar: req.body?.numero_buscar,
-        operador: req.body?.operador,
-        keys: Object.keys(req.body || {})
-      });
 
       const { archivo_excel, numero_buscar, operador } = req.body;
       
@@ -924,12 +917,8 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
   // POST /api/experticias - Create new experticia
   app.post("/api/experticias", authenticateToken, async (req: any, res) => {
     try {
-      console.log('🔍 [CREATE EXPERTICIA] Inicio del proceso');
-      console.log('📋 [CREATE EXPERTICIA] Número de dictamen:', req.body.numeroDictamen);
-      console.log('👤 [CREATE EXPERTICIA] Usuario:', req.user?.username, 'Rol:', req.user?.rol);
       const listaResumen = Array.isArray(req.body.listaAnalisis) ? req.body.listaAnalisis : [];
       const totalFilas = listaResumen.reduce((acc: number, item: any) => acc + (item.resultados?.contactos?.datosCrudos?.length ?? 0), 0);
-      console.log(`📦 [CREATE EXPERTICIA] listaAnalisis: ${listaResumen.length} número(s), ${totalFilas} filas totales`);
 
       // Reutilizar la misma validación del endpoint /validate (defensa en profundidad)
       const error = await validarDatosExperticia(req.body, req.user);
@@ -1058,7 +1047,18 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
       }
 
       res.status(201).json(experticia);
+
+      logger.actividad({
+        usuarioId: req.user.id,
+        username: req.user.username,
+        accion: "experticia_create_analizar",
+        modulo: "Experticias",
+        resultado: "exitoso",
+        ip: (req as any).clientIp,
+        metadata: { experticia_id: experticia.id, numero_dictamen: experticia.numeroDictamen, filas: totalFilas },
+      });
     } catch (error: any) {
+      logger.error({ servicio: "Node", endpoint: "POST /api/experticias", mensaje: String(error.message || error) });
       console.error("Error creating experticia:", error);
       if (error.code === '23505') { // Unique constraint violation
         return res.status(409).json({ message: "Ya existe una experticia con ese código" });
@@ -1190,7 +1190,7 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
       // Si viene un expediente, actualizar el expedienteSujeto correspondiente
       if (expediente) {
         const exps = await storage.getExpedientesSujetosByPersonaId(persona.nro);
-        const expConTelefono = exps.find(e => e.telefonoCaso === abonado);
+        const expConTelefono = exps.find((e: any) => e.telefonoCaso === abonado);
         if (expConTelefono) {
           await storage.updateExpedienteSujeto(expConTelefono.id, {
             expediente,

@@ -31,6 +31,7 @@ import { registerChatbotRoutes } from "./model_ai/routesAI";
 import { registerStatsRoutes } from "./routes-stats";
 import { registerAnalisisRoutes } from "./routesAnalisi";
 import { parseWithPrefixes } from '../tools/utils_I';
+import { logger } from "./logger";
 
 // import { readFileSync, existsSync } from 'fs';
 import PizZip from 'pizzip';
@@ -207,6 +208,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUserByUsername(username);
       if (!user) {
         // Increment failed attempts for non-existent users too (security)
+        logger.actividad({
+          username,
+          accion: "login_fail",
+          modulo: "Autenticación",
+          resultado: "error",
+          ip: clientIp,
+          metadata: { motivo: "usuario_no_existe" },
+        });
         return res.status(401).json({ message: "Credenciales inválidas" });
       }
 
@@ -266,11 +275,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (wasSuspended) {
           // Notify admins about the suspension
           await storage.notifyAdminsOfFailedLoginSuspension(username, clientIp);
+          logger.seguridad({
+            usuarioId: updatedUser.id,
+            username: updatedUser.username,
+            tipo: "Cuenta suspendida por intentos",
+            ip: clientIp,
+            detalle: `Cuenta suspendida tras intentos fallidos`,
+            nivel: "alto",
+          });
           return res.status(401).json({ 
             message: "Cuenta Suspendida (3 horas)"
           });
         }
         
+        logger.actividad({
+          usuarioId: updatedUser.id,
+          username: updatedUser.username,
+          accion: "login_fail",
+          modulo: "Autenticación",
+          resultado: "error",
+          ip: clientIp,
+          metadata: { motivo: "password_invalido" },
+        });
         return res.status(401).json({ message: "Credenciales inválidas" });
       }
 
@@ -309,6 +335,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           rol: updatedUser.rol,
         },
       });
+
+      logger.actividad({
+        usuarioId: updatedUser.id,
+        username: updatedUser.username,
+        accion: "login",
+        modulo: "Autenticación",
+        resultado: "exitoso",
+        ip: clientIp,
+      });
     } catch (error) {
       // Login error - handle gracefully
       res.status(400).json({ message: "Error en el login" });
@@ -321,6 +356,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clear the user's session
       await storage.clearUserSession(user.id);
       res.json({ message: "Sesión cerrada exitosamente" });
+
+      logger.actividad({
+        usuarioId: user.id,
+        username: user.username,
+        accion: "logout",
+        modulo: "Autenticación",
+        resultado: "exitoso",
+        ip: (req as any).clientIp,
+      });
     } catch (error) {
       // Logout error - handle gracefully
       res.status(500).json({ message: "Error al cerrar sesión" });
@@ -506,6 +550,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.status(201).json(solicitud);
+
+      logger.actividad({
+        usuarioId: req.user.id,
+        username: req.user.username,
+        accion: "solicitud_create",
+        modulo: "Solicitudes",
+        resultado: "exitoso",
+        ip: (req as any).clientIp,
+        metadata: { numero_solicitud: solicitud.numeroSolicitud, numero_expediente: solicitud.numeroExpediente },
+      });
     } catch (error) {
       // Error creating request - handle validation and database errors
       if (error instanceof z.ZodError) {
@@ -612,6 +666,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json(solicitud);
+
+      logger.actividad({
+        usuarioId: req.user.id,
+        username: req.user.username,
+        accion: "solicitud_update",
+        modulo: "Solicitudes",
+        resultado: "exitoso",
+        ip: (req as any).clientIp,
+        metadata: { solicitud_id: solicitud.id, numero_solicitud: solicitud.numeroSolicitud },
+      });
     } catch (error) {
       // Error actualizando solicitud:", error);
       if (error instanceof z.ZodError) {
@@ -651,6 +715,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.json({ message: "Solicitud eliminada exitosamente" });
+
+      logger.actividad({
+        usuarioId: req.user.id,
+        username: req.user.username,
+        accion: "solicitud_delete",
+        modulo: "Solicitudes",
+        resultado: "exitoso",
+        ip: (req as any).clientIp,
+        metadata: { solicitud_id: id, numero_solicitud: currentSolicitud.numeroSolicitud },
+      });
     } catch (error) {
       // Error eliminando solicitud:", error);
       res.status(500).json({ message: "Error eliminando solicitud" });

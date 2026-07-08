@@ -2,6 +2,11 @@ import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { usePermissions } from "@/hooks/use-permissions";
+import { useToast } from "@/hooks/use-toast";
+import { useLogs, buildChartData } from "@/hooks/use-logs";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -350,7 +355,7 @@ function SelectorPeriodo({
               {labelRango}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
+          <PopoverContent className="!w-auto p-0" align="start">
             <Calendar
               mode="range"
               selected={rango}
@@ -358,7 +363,7 @@ function SelectorPeriodo({
                 onRangoChange(r);
                 if (r?.from && r?.to) setCalAbierto(false);
               }}
-              numberOfMonths={2}
+              numberOfMonths={1}
               locale={es}
               disabled={{ after: new Date() }}
             />
@@ -377,20 +382,33 @@ function TabGeneral() {
   const [periodoTrazab, setPeriodoTrazab]           = useState<Periodo>("24h");
   const [rangoTrazab, setRangoTrazab]               = useState<DateRange | undefined>();
 
-  const datosActividad = useMemo(() => {
-    if (periodoActividad === "24h")  return datosActividad24h;
-    if (periodoActividad === "72h")  return datosActividad72h;
-    return datosPorDia.actividad;   // rango → diario mock
-  }, [periodoActividad]);
+  const { actividad, errores, seguridad, metricas } = useLogs(72);
 
-  const datosTrazab = useMemo(() => {
-    if (periodoTrazab === "24h")  return datosTrazabilidad24h;
-    if (periodoTrazab === "72h")  return datosTrazabilidad72h;
-    return datosPorDia.trazabilidad; // rango → diario mock
-  }, [periodoTrazab]);
+  const datosActividad = useMemo(
+    () => buildChartData(metricas, "actividad", periodoActividad, rangoActividad),
+    [metricas, periodoActividad, rangoActividad]
+  );
+
+  const datosTrazab = useMemo(
+    () => buildChartData(metricas, "trazabilidad", periodoTrazab, rangoTrazab),
+    [metricas, periodoTrazab, rangoTrazab]
+  );
 
   const tickInterval = (datos: { label: string }[]) =>
     datos.length <= 24 ? 3 : datos.length <= 72 ? 11 : 0;
+
+  const usuariosActivos = new Set(actividad.map((a) => a.usuario)).size;
+  const accionesHoy = actividad.length;
+  const erroresSinRevisar = errores.filter((e) => !e.revisado).length;
+  const loginFallidos = seguridad.filter((s) => s.tipo === "Login fallido").length;
+  const alertasAltas = seguridad.filter((s) => s.nivel === "alto").length;
+
+  const alertasRecientesReales = seguridad.slice(0, 5).map((s) => ({
+    id: s.id,
+    tipo: s.nivel === "alto" ? "critica" : s.nivel === "medio" ? "advertencia" : "info",
+    mensaje: `${s.tipo}${s.usuario ? ` (${s.usuario})` : ""}${s.detalle ? ` - ${s.detalle}` : ""}`,
+    hora: s.fecha.split(" ")[1] || "-",
+  }));
 
   return (
     <div className="space-y-6">
@@ -398,23 +416,23 @@ function TabGeneral() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <KpiCard
           icon={<Users       className="h-5 w-5 text-blue-600" />}
-          label="Usuarios activos ahora" value={4} sub="de 12 registrados" color="bg-blue-50"
+          label="Usuarios activos ahora" value={usuariosActivos} sub="con actividad reciente" color="bg-blue-50"
         />
         <KpiCard
           icon={<Activity    className="h-5 w-5 text-green-600" />}
-          label="Acciones hoy" value={218} sub="últimas 24 horas" color="bg-green-50"
+          label="Acciones hoy" value={accionesHoy} sub="últimas 24 horas" color="bg-green-50"
         />
         <KpiCard
           icon={<ServerCrash className="h-5 w-5 text-orange-600" />}
-          label="Errores del sistema" value={3} sub="sin revisar" color="bg-orange-50"
+          label="Errores del sistema" value={erroresSinRevisar} sub="sin revisar" color="bg-orange-50"
         />
         <KpiCard
           icon={<ShieldAlert className="h-5 w-5 text-red-600" />}
-          label="Login fallidos" value={7} sub="en las últimas 24h" color="bg-red-50"
+          label="Login fallidos" value={loginFallidos} sub="en las últimas 24h" color="bg-red-50"
         />
         <KpiCard
           icon={<AlertTriangle className="h-5 w-5 text-amber-600" />}
-          label="Alertas pendientes" value={3} sub="requieren atención" color="bg-amber-50"
+          label="Alertas pendientes" value={alertasAltas} sub="requieren atención" color="bg-amber-50"
         />
       </div>
 
@@ -462,7 +480,7 @@ function TabGeneral() {
           </CardHeader>
           <CardContent className="p-0">
             <ul className="divide-y divide-gray-50">
-              {alertasRecientes.map((a) => (
+              {alertasRecientesReales.map((a) => (
                 <li key={a.id} className="px-5 py-3">
                   <div className="flex items-start gap-2">
                     <AlertaBadge tipo={a.tipo} />
@@ -529,9 +547,10 @@ function TabActividad() {
   const [busqueda, setBusqueda]           = useState("");
   const [filtroResultado, setFiltroResultado] = useState("todos");
   const [filtroModulo, setFiltroModulo]   = useState("todos");
+  const { actividad } = useLogs();
 
   const datos = useMemo(() => {
-    return registrosActividad.filter((r) => {
+    return actividad.filter((r) => {
       const label = accionLabel[r.accion] ?? r.accion;
       const matchBusqueda =
         !busqueda ||
@@ -543,7 +562,7 @@ function TabActividad() {
       const matchModulo    = filtroModulo === "todos"    || r.modulo === filtroModulo;
       return matchBusqueda && matchResultado && matchModulo;
     });
-  }, [busqueda, filtroResultado, filtroModulo]);
+  }, [busqueda, filtroResultado, filtroModulo, actividad]);
 
   return (
     <div className="space-y-4">
@@ -648,15 +667,16 @@ function TabErrores() {
   const [filtroNivel,    setFiltroNivel]    = useState("todos");
   const [filtroServicio, setFiltroServicio] = useState("todos");
   const [expandido,      setExpandido]      = useState<number | null>(null);
+  const { errores } = useLogs();
   const [revisados,      setRevisados]      = useState<Set<number>>(
-    new Set(registrosErrores.filter((e) => e.revisado).map((e) => e.id))
+    new Set(errores.filter((e) => e.revisado).map((e) => e.id))
   );
 
-  const datos = useMemo(() => registrosErrores.filter((e) => {
+  const datos = useMemo(() => errores.filter((e) => {
     const matchNivel    = filtroNivel    === "todos" || e.nivel    === filtroNivel;
     const matchServicio = filtroServicio === "todos" || e.servicio === filtroServicio;
     return matchNivel && matchServicio;
-  }), [filtroNivel, filtroServicio]);
+  }), [filtroNivel, filtroServicio, errores]);
 
   const marcarRevisado = (id: number) =>
     setRevisados((prev) => {
@@ -750,10 +770,11 @@ function TabErrores() {
 
 function TabSeguridad() {
   const [filtroNivel, setFiltroNivel] = useState("todos");
+  const { seguridad } = useLogs();
 
   const datos = useMemo(() =>
-    eventosSeguidad.filter((e) => filtroNivel === "todos" || e.nivel === filtroNivel),
-    [filtroNivel]
+    seguridad.filter((e) => filtroNivel === "todos" || e.nivel === filtroNivel),
+    [filtroNivel, seguridad]
   );
 
   return (
@@ -850,6 +871,42 @@ function TabSeguridad() {
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function Monitoreo() {
+  const { toast } = useToast();
+  const { canViewDashboard } = usePermissions();
+  const { errores, seguridad, refetch, exportLogs, isExporting } = useLogs();
+  const [isAdmin] = useState(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      return user?.rol === "admin";
+    } catch {
+      return false;
+    }
+  });
+
+  const handleActualizar = async () => {
+    try {
+      if (isAdmin && exportLogs) {
+        await exportLogs();
+        toast({ title: "Logs exportados", description: "Archivos JSONL actualizados manualmente" });
+      }
+      await refetch();
+    } catch (error: any) {
+      toast({
+        title: "Error al actualizar",
+        description: error?.message || "No se pudo actualizar el monitoreo",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (!canViewDashboard) {
+    return (
+      <Layout title="Centro de Monitoreo" subtitle="Supervisión y control del sistema">
+        <div className="p-6 text-center text-gray-500">No tienes permiso para ver esta sección.</div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout title="Centro de Monitoreo" subtitle="Supervisión y control del sistema">
       <div className="p-6 space-y-6">
@@ -859,9 +916,15 @@ export default function Monitoreo() {
             <h1 className="text-xl font-bold text-gray-800">Centro de Monitoreo</h1>
             <p className="text-sm text-gray-500 mt-0.5">Supervisión en tiempo real del sistema</p>
           </div>
-          <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm">
-            <RefreshCw className="h-3.5 w-3.5" />
-            Actualizar
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 text-sm"
+            onClick={handleActualizar}
+            disabled={isExporting}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isExporting ? "animate-spin" : ""}`} />
+            {isExporting ? "Exportando..." : "Actualizar"}
           </Button>
         </div>
 
@@ -877,13 +940,13 @@ export default function Monitoreo() {
             <TabsTrigger value="errores"   className="text-sm px-4 py-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md flex items-center gap-1.5">
               Errores
               <span className="bg-red-100 text-red-600 text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">
-                {registrosErrores.filter((e) => !e.revisado).length}
+                {errores.filter((e) => !e.revisado).length}
               </span>
             </TabsTrigger>
             <TabsTrigger value="seguridad" className="text-sm px-4 py-1.5 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md flex items-center gap-1.5">
               Seguridad
               <span className="bg-amber-100 text-amber-600 text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">
-                {eventosSeguidad.filter((e) => e.nivel === "alto").length}
+                {seguridad.filter((e) => e.nivel === "alto").length}
               </span>
             </TabsTrigger>
           </TabsList>
