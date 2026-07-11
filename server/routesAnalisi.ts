@@ -2,6 +2,7 @@
 import type { Express } from "express";
 import { storage } from "./storage";
 import { db } from "./db";
+import { logger } from "./monitor/logger";
 import {
   personasCasos,
   personaTelefonos,
@@ -86,10 +87,7 @@ export function registerAnalisisRoutes(
         edad: body.edad,
         fechaDeNacimiento: body.fechaDeNacimiento,
         profesion: body.profesion,
-        correo: body.correo,
         direccion: body.direccion,
-        otrosTlf: body.otrosTlf || null,
-        rol: body.rol || null,
         usuarioId: req.user.id,
       };
 
@@ -103,6 +101,9 @@ export function registerAnalisisRoutes(
         fechaDeInicio: body.fechaDeInicio,
         descripcion: body.descripcion,
         observacion: body.observacion,
+        correo: body.correo,
+        otrosTlf: body.otrosTlf || null,
+        rol: body.rol || null,
       };
 
       const validatedBio = insertPersonaCasoSchema.parse(bioFields);
@@ -200,6 +201,16 @@ export function registerAnalisisRoutes(
         .from(personaTelefonos)
         .where(eq(personaTelefonos.personaId, id));
       res.json({ ...persona, telefonosAsociados: telefonos });
+
+      logger.actividad({
+        usuarioId: req.user?.id,
+        username: req.user?.username,
+        accion: "trazabilidad_info_persona",
+        modulo: "Trazabilidad",
+        resultado: "exitoso",
+        ip: (req as any).clientIp,
+        detalle: `Info Persona/Caso: ${persona.nombre || ""} ${persona.apellido || ""} — C.I. ${persona.cedula || "s/n"}`.trim(),
+      });
     } catch (error: any) {
       res.status(500).json({ message: "Error al obtener persona/caso" });
     }
@@ -227,7 +238,6 @@ export function registerAnalisisRoutes(
         edad: persona?.edad,
         fechaDeNacimiento: persona?.fechaDeNacimiento,
         profesion: persona?.profesion,
-        correo: persona?.correo,
         direccion: persona?.direccion,
         telefono: expediente.telefonoCaso,
         telefonoCaso: expediente.telefonoCaso,
@@ -239,6 +249,9 @@ export function registerAnalisisRoutes(
         fechaDeInicio: expediente.fechaDeInicio,
         descripcion: expediente.descripcion,
         observacion: expediente.observacion,
+        correo: expediente.correo,
+        otrosTlf: expediente.otrosTlf,
+        rol: expediente.rol,
       });
     } catch (error: any) {
       res.status(500).json({ message: "Error al obtener expediente" });
@@ -263,7 +276,6 @@ export function registerAnalisisRoutes(
           edad: body.edad,
           fechaDeNacimiento: body.fechaDeNacimiento,
           profesion: body.profesion,
-          correo: body.correo,
           direccion: body.direccion,
         };
         const validatedBio = insertPersonaCasoSchema.partial().parse(bioFields);
@@ -280,6 +292,9 @@ export function registerAnalisisRoutes(
         fechaDeInicio: body.fechaDeInicio,
         descripcion: body.descripcion,
         observacion: body.observacion,
+        correo: body.correo,
+        otrosTlf: body.otrosTlf || null,
+        rol: body.rol || null,
       };
       const validatedCase = insertExpedienteSujetoSchema.partial().parse(caseFields);
       const updatedExp = await storage.updateExpedienteSujeto(id, validatedCase);
@@ -524,6 +539,16 @@ export function registerAnalisisRoutes(
         tipoBusqueda: tipo,
         valorBusqueda: valor,
       });
+
+      logger.actividad({
+        usuarioId: req.user?.id,
+        username: req.user?.username,
+        accion: "trazabilidad_buscar",
+        modulo: "Trazabilidad",
+        resultado: "exitoso",
+        ip: (req as any).clientIp,
+        detalle: `Búsqueda por ${tipo}: ${valor} — ${resultados.length} resultado(s)`,
+      });
     } catch (error: any) {
       console.log(`   💥 [TRAZABILIDAD BUSCAR] Error: ${error.message}`);
       res.status(500).json({ message: "Error al buscar trazabilidad" });
@@ -608,6 +633,16 @@ export function registerAnalisisRoutes(
         coincidenciasEncontradas: coincidencias.length,
         coincidencias,
       });
+
+      logger.actividad({
+        usuarioId: req.user?.id,
+        username: req.user?.username,
+        accion: "trazabilidad_analizar_traza",
+        modulo: "Trazabilidad",
+        resultado: "exitoso",
+        ip: (req as any).clientIp,
+        detalle: `Análisis de traza: ${numero} — ${coincidencias.length} coincidencia(s)`,
+      });
     } catch (error: any) {
       res.status(500).json({ message: "Error al buscar coincidencias" });
     }
@@ -647,6 +682,16 @@ export function registerAnalisisRoutes(
 
       const analisis = await pythonRes.json();
       res.json(analisis);
+
+      logger.actividad({
+        usuarioId: req.user?.id,
+        username: req.user?.username,
+        accion: "trazabilidad_analisis_cdr",
+        modulo: "Trazabilidad",
+        resultado: "exitoso",
+        ip: (req as any).clientIp,
+        detalle: `Análisis CDR: ${numero}`,
+      });
     } catch (error: any) {
       res.status(500).json({ message: "Error al analizar trazabilidad" });
     }
@@ -676,6 +721,16 @@ export function registerAnalisisRoutes(
       const expedienteSujetoId = req.query.expedienteSujetoId ? parseInt(req.query.expedienteSujetoId as string) : undefined;
       const registros = await storage.getRegistrosComunicacionByAbonado(abonado, expedienteSujetoId);
       res.json(registros);
+
+      logger.actividad({
+        usuarioId: req.user?.id,
+        username: req.user?.username,
+        accion: "trazabilidad_ver_registros",
+        modulo: "Trazabilidad",
+        resultado: "exitoso",
+        ip: (req as any).clientIp,
+        detalle: `Ver registros CDR: ${abonado} — ${registros.length} registro(s)`,
+      });
     } catch (error: any) {
       res.status(500).json({ message: "Error al obtener registros de comunicación" });
     }

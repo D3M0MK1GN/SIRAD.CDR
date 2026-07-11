@@ -567,6 +567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         modulo: "Solicitudes",
         resultado: "exitoso",
         ip: (req as any).clientIp,
+        detalle: `Sol. N° ${solicitud.numeroSolicitud}`,
         metadata: { numero_solicitud: solicitud.numeroSolicitud, numero_expediente: solicitud.numeroExpediente },
       });
     } catch (error) {
@@ -683,6 +684,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         modulo: "Solicitudes",
         resultado: "exitoso",
         ip: (req as any).clientIp,
+        detalle: `Sol. N° ${solicitud.numeroSolicitud}`,
         metadata: { solicitud_id: solicitud.id, numero_solicitud: solicitud.numeroSolicitud },
       });
     } catch (error) {
@@ -732,6 +734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         modulo: "Solicitudes",
         resultado: "exitoso",
         ip: (req as any).clientIp,
+        detalle: `Sol. N° ${currentSolicitud.numeroSolicitud}`,
         metadata: { solicitud_id: id, numero_solicitud: currentSolicitud.numeroSolicitud },
       });
     } catch (error) {
@@ -906,6 +909,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userData = insertUserSchema.partial().parse(bodyData);
+
+      // Sincronizar campo activo según status para mantener consistencia
+      if (userData.status === "activo") {
+        userData.activo = true;
+      } else if (userData.status === "bloqueado" || userData.status === "suspendido") {
+        userData.activo = false;
+      }
 
       // If password is provided, hash it
       if (userData.password) {

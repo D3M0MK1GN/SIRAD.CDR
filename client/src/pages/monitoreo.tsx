@@ -217,45 +217,63 @@ const eventosSeguidad = [
 // ─── Labels de acciones ───────────────────────────────────────────────────────
 
 const accionLabel: Record<string, string> = {
-  login:                    "Login exitoso",
-  login_fail:               "Login fallido",
-  logout:                   "Cierre de sesión",
-  session_expired:          "Sesión expirada",
-  solicitud_create:         "Crear solicitud",
-  solicitud_update:         "Actualizar solicitud",
-  experticia_create_analizar: "Crear y analizar experticia",
-  experticia_update:        "Actualizar experticia",
-  experticia_delete:        "Eliminar experticia",
-  experticia_export_word:   "Exportar experticia (Word)",
-  trazabilidad_search:      "Búsqueda en trazabilidad",
-  trazabilidad_detail_view: "Ver detalle de trazabilidad",
-  plantilla_create:         "Crear plantilla",
-  plantilla_update:         "Actualizar plantilla",
-  plantilla_delete:         "Eliminar plantilla",
-  config_change:            "Cambio de configuración",
-  failed_access:            "Acceso denegado",
-  suspicious_action:        "Acción sospechosa",
+  login:                       "Login exitoso",
+  login_fail:                  "Login fallido",
+  logout:                      "Cierre de sesión",
+  session_expired:             "Sesión expirada",
+  solicitud_create:            "Crear solicitud",
+  solicitud_update:            "Actualizar solicitud",
+  solicitud_delete:            "Eliminar solicitud",
+  experticia_create_analizar:  "Crear y analizar experticia",
+  experticia_update:           "Actualizar experticia",
+  experticia_delete:           "Eliminar experticia",
+  experticia_export_word:      "Exportar experticia (Word)",
+  // Trazabilidad — legacy mock keys
+  trazabilidad_search:         "Búsqueda en trazabilidad",
+  trazabilidad_detail_view:    "Ver detalle de trazabilidad",
+  // Trazabilidad — acciones reales registradas desde el backend
+  trazabilidad_buscar:         "Búsqueda en trazabilidad",
+  trazabilidad_analizar_traza: "Analizar traza",
+  trazabilidad_analisis_cdr:   "Análisis CDR",
+  trazabilidad_ver_registros:  "Ver registros CDR",
+  trazabilidad_info_persona:   "Info Persona/Caso",
+  plantilla_create:            "Crear plantilla",
+  plantilla_update:            "Actualizar plantilla",
+  plantilla_delete:            "Eliminar plantilla",
+  config_change:               "Cambio de configuración",
+  failed_access:               "Acceso denegado",
+  suspicious_action:           "Acción sospechosa",
+  logs_export_manual:          "Exportar logs (manual)",
 };
 
 const accionIcono: Record<string, React.ReactNode> = {
-  login:                    <LogIn  className="h-3.5 w-3.5 text-green-500" />,
-  login_fail:               <LogIn  className="h-3.5 w-3.5 text-red-500" />,
-  logout:                   <LogOut className="h-3.5 w-3.5 text-gray-500" />,
-  session_expired:          <Clock  className="h-3.5 w-3.5 text-amber-500" />,
-  solicitud_create:         <FileEdit className="h-3.5 w-3.5 text-blue-500" />,
-  solicitud_update:         <FileEdit className="h-3.5 w-3.5 text-sky-500" />,
-  experticia_create_analizar: <FileBadge className="h-3.5 w-3.5 text-indigo-500" />,
-  experticia_update:        <FileEdit className="h-3.5 w-3.5 text-violet-500" />,
-  experticia_delete:        <Trash2  className="h-3.5 w-3.5 text-red-500" />,
-  experticia_export_word:   <FileText className="h-3.5 w-3.5 text-blue-700" />,
-  trazabilidad_search:      <SearchCode className="h-3.5 w-3.5 text-teal-500" />,
-  trazabilidad_detail_view: <Eye    className="h-3.5 w-3.5 text-teal-700" />,
-  plantilla_create:         <FileText className="h-3.5 w-3.5 text-emerald-500" />,
-  plantilla_update:         <FileText className="h-3.5 w-3.5 text-emerald-600" />,
-  plantilla_delete:         <Trash2  className="h-3.5 w-3.5 text-red-400" />,
-  config_change:            <Settings className="h-3.5 w-3.5 text-gray-600" />,
-  failed_access:            <XCircle className="h-3.5 w-3.5 text-red-600" />,
-  suspicious_action:        <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />,
+  login:                       <LogIn  className="h-3.5 w-3.5 text-green-500" />,
+  login_fail:                  <LogIn  className="h-3.5 w-3.5 text-red-500" />,
+  logout:                      <LogOut className="h-3.5 w-3.5 text-gray-500" />,
+  session_expired:             <Clock  className="h-3.5 w-3.5 text-amber-500" />,
+  solicitud_create:            <FileEdit className="h-3.5 w-3.5 text-blue-500" />,
+  solicitud_update:            <FileEdit className="h-3.5 w-3.5 text-sky-500" />,
+  solicitud_delete:            <Trash2  className="h-3.5 w-3.5 text-red-400" />,
+  experticia_create_analizar:  <FileBadge className="h-3.5 w-3.5 text-indigo-500" />,
+  experticia_update:           <FileEdit className="h-3.5 w-3.5 text-violet-500" />,
+  experticia_delete:           <Trash2  className="h-3.5 w-3.5 text-red-500" />,
+  experticia_export_word:      <FileText className="h-3.5 w-3.5 text-blue-700" />,
+  // Trazabilidad — legacy
+  trazabilidad_search:         <SearchCode className="h-3.5 w-3.5 text-teal-500" />,
+  trazabilidad_detail_view:    <Eye    className="h-3.5 w-3.5 text-teal-700" />,
+  // Trazabilidad — acciones reales
+  trazabilidad_buscar:         <SearchCode className="h-3.5 w-3.5 text-teal-500" />,
+  trazabilidad_analizar_traza: <Eye    className="h-3.5 w-3.5 text-teal-600" />,
+  trazabilidad_analisis_cdr:   <SearchCode className="h-3.5 w-3.5 text-cyan-600" />,
+  trazabilidad_ver_registros:  <FileText className="h-3.5 w-3.5 text-teal-700" />,
+  trazabilidad_info_persona:   <Eye    className="h-3.5 w-3.5 text-teal-800" />,
+  plantilla_create:            <FileText className="h-3.5 w-3.5 text-emerald-500" />,
+  plantilla_update:            <FileText className="h-3.5 w-3.5 text-emerald-600" />,
+  plantilla_delete:            <Trash2  className="h-3.5 w-3.5 text-red-400" />,
+  config_change:               <Settings className="h-3.5 w-3.5 text-gray-600" />,
+  failed_access:               <XCircle className="h-3.5 w-3.5 text-red-600" />,
+  suspicious_action:           <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />,
+  logs_export_manual:          <FileText className="h-3.5 w-3.5 text-gray-500" />,
 };
 
 // ─── Helpers visuales ─────────────────────────────────────────────────────────
@@ -397,7 +415,12 @@ function TabGeneral() {
   const tickInterval = (datos: { label: string }[]) =>
     datos.length <= 24 ? 3 : datos.length <= 72 ? 11 : 0;
 
-  const usuariosActivos = new Set(actividad.map((a) => a.usuario)).size;
+  const { data: activeCountData } = useQuery<{ activeUsers: number }>({
+    queryKey: ["/api/users/active-count"],
+    queryFn: () => apiRequest("/api/users/active-count"),
+    refetchInterval: 30_000, // refresca cada 30 segundos
+  });
+  const usuariosActivos = activeCountData?.activeUsers ?? 0;
   const accionesHoy = actividad.length;
   const erroresSinRevisar = errores.filter((e) => !e.revisado).length;
   const loginFallidos = seguridad.filter((s) => s.tipo === "Login fallido").length;
@@ -631,9 +654,14 @@ function TabActividad() {
                   <TableCell className="text-xs text-gray-500 font-mono">{r.fecha}</TableCell>
                   <TableCell className="font-medium text-gray-800">{r.usuario}</TableCell>
                   <TableCell>
-                    <span className="flex items-center gap-1.5 text-gray-700">
-                      {accionIcono[r.accion] ?? <Activity className="h-3.5 w-3.5 text-gray-400" />}
-                      {accionLabel[r.accion] ?? r.accion}
+                    <span className="flex flex-col gap-0.5">
+                      <span className="flex items-center gap-1.5 text-gray-700">
+                        {accionIcono[r.accion] ?? <Activity className="h-3.5 w-3.5 text-gray-400" />}
+                        {accionLabel[r.accion] ?? r.accion}
+                      </span>
+                      {r.detalle && (
+                        <span className="text-[11px] text-gray-400 pl-5 leading-tight">{r.detalle}</span>
+                      )}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -883,13 +911,23 @@ export default function Monitoreo() {
     }
   });
 
+  const queryClient = useQueryClient();
+
   const handleActualizar = async () => {
     try {
       if (isAdmin && exportLogs) {
         await exportLogs();
         toast({ title: "Logs exportados", description: "Archivos JSONL actualizados manualmente" });
       }
-      await refetch();
+      // Invalida todas las variantes de cada query (con y sin sinceHours)
+      // para que las KPIs, tablas y gráficos se refresquen en un solo clic
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/logs/actividad"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/logs/errores"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/logs/seguridad"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/metricas"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/users/active-count"] }),
+      ]);
     } catch (error: any) {
       toast({
         title: "Error al actualizar",

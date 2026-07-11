@@ -4,7 +4,6 @@ import path from "path";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { tokenCleanupManager } from "../tools/clean";
-import { logJobsManager } from "./monitor/logJobs";
 import "./types";
 
 const app = express();
@@ -12,7 +11,7 @@ const app = express();
 // Trust proxy para obtener IP correcta en entornos con proxy
 app.set('trust proxy', true);
 
-app.use(express.json({ limit: '20mb' }));
+app.use(express.json({ limit: '10mb' }));
 
 // Middleware para obtener IP del cliente
 app.use((req, res, next) => {
@@ -55,7 +54,7 @@ app.use((req, res, next) => {
   req.clientIp = getClientIp(req);
   next();
 });
-app.use(express.urlencoded({ extended: false, limit: '20mb' }));
+app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -121,9 +120,6 @@ app.use((req, res, next) => {
     
     // Iniciar el sistema de limpieza automática de tokens
     tokenCleanupManager.start();
-
-    // Iniciar el sistema de logs híbrido (exportación 24h + purga 45 días)
-    logJobsManager.start();
     
     /* */
     // Iniciar el servicio Python API para análisis BTS

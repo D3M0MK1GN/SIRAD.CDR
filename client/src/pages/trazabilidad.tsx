@@ -1018,6 +1018,40 @@ export default function Trazabilidad() {
                 </div>
                 <div>
                   <label className="text-sm font-semibold text-gray-700">
+                    Rol:
+                  </label>
+                  <p className="text-gray-900">
+                    {personaData.rol ? (
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                          personaData.rol === "Victima"
+                            ? "bg-red-100 text-red-800"
+                            : personaData.rol === "Investigado"
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-blue-100 text-blue-800"
+                        }`}
+                      >
+                        {personaData.rol === "Victima" ? "Víctima" : personaData.rol}
+                      </span>
+                    ) : (
+                      "No especificado"
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">
+                    Correo:
+                  </label>
+                  <p className="text-gray-900">{personaData.correo || "N/A"}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">
+                    Otros Teléfonos:
+                  </label>
+                  <p className="text-gray-900">{personaData.otrosTlf || "N/A"}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">
                     Fecha de Inicio:
                   </label>
                   <p className="text-gray-900">

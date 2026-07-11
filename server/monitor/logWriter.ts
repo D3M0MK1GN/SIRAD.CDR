@@ -54,10 +54,7 @@ async function ensureDir(): Promise<void> {
 }
 
 function filePath(prefix: string, date: Date): string {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  return path.join(LOGS_DIR, `${prefix}-${yyyy}-${mm}-${dd}.jsonl`);
+  return path.join(LOGS_DIR, `${prefix}.jsonl`);
 }
 
 async function appendLines(file: string, lines: string[]): Promise<void> {

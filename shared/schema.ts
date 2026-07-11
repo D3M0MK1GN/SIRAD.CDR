@@ -427,10 +427,7 @@ export const personasCasos = pgTable("personas_casos", {
   edad: integer("edad"),
   fechaDeNacimiento: text("fecha_de_nacimiento"),
   profesion: text("profesion"),
-  correo: text("correo"),
   direccion: text("direccion"),
-  otrosTlf: text("otros_tlf"),
-  rol: text("rol"),
   usuarioId: integer("usuario_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -495,6 +492,9 @@ export const expedientesSujetos = pgTable("expedientes_sujetos", {
   fechaDeInicio: text("fecha_de_inicio"),
   descripcion: text("descripcion"),
   observacion: text("observacion"),
+  correo: text("correo"),
+  otrosTlf: text("otros_tlf"),
+  rol: text("rol"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -645,6 +645,7 @@ export const logsActividad = pgTable("logs_actividad", {
   resultado: logResultadoEnum("resultado").notNull(),
   ip: text("ip"),
   metadata: jsonb("metadata"), // datos estructurados de auditoría
+  detalle: text("detalle"),   // descripción contextual legible (ej: "Dictamen N° 123")
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   createdAtIdx: index("idx_logs_actividad_created_at").on(table.createdAt),

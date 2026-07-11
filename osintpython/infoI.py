@@ -5,8 +5,8 @@ from datetime import datetime
 
 # --- Configuración de la API ---
 # ¡IMPORTANTE! Reemplaza estos valores con tu APP-ID y TOKEN reales
-APP_ID = "1966"  # Reemplaza con tu APP-ID
-TOKEN = "f82f78de1c215aae3d0c30a4e020b561" # Reemplaza con tu TOKEN
+APP_ID = "9314"  # Reemplaza con tu APP-ID
+TOKEN = "15f625d3f55b6749c7a54c54b6235c98" # Reemplaza con tu TOKEN
 BASE_URL = "http://api.cedula.com.ve/api/v1"
 
 # Nombre del archivo donde se guardarán las consultas

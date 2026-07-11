@@ -82,6 +82,7 @@ export interface ActividadInput {
   resultado: "exitoso" | "error" | "advertencia";
   ip?: string;
   msgid?: string;
+  detalle?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -102,6 +103,7 @@ export function registrarActividad(input: ActividadInput): void {
     modulo: input.modulo,
     resultado: input.resultado,
     ip: input.ip,
+    detalle: input.detalle ?? null,
     metadata: input.metadata ?? null,
   };
 

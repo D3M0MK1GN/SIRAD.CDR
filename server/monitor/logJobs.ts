@@ -8,7 +8,7 @@
 import { exportLogsToFiles, purgeOldLogs } from "./logWriter";
 
 const EXPORT_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 horas
-const RETENTION_DAYS = 90;
+const RETENTION_DAYS = 45;
 
 let lastExportAt: Date | null = null;
 let exportInterval: NodeJS.Timeout | null = null;

@@ -1055,6 +1055,7 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
         modulo: "Experticias",
         resultado: "exitoso",
         ip: (req as any).clientIp,
+        detalle: `Dictamen N° ${experticia.numeroDictamen}`,
         metadata: { experticia_id: experticia.id, numero_dictamen: experticia.numeroDictamen, filas: totalFilas },
       });
     } catch (error: any) {
@@ -1167,7 +1168,16 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
       if (!persona) {
         return res.status(404).json({ message: "No se encontraron datos del afiliado" });
       }
-      res.json(persona);
+      const exps = await storage.getExpedientesSujetosByPersonaId(persona.nro);
+      const expConTelefono = exps.find((e: any) => e.telefonoCaso === abonado) || exps[0];
+      res.json({
+        ...persona,
+        correo: expConTelefono?.correo ?? null,
+        otrosTlf: expConTelefono?.otrosTlf ?? null,
+        rol: expConTelefono?.rol ?? null,
+        pseudonimo: expConTelefono?.pseudonimo ?? null,
+        expediente: expConTelefono?.expediente ?? null,
+      });
     } catch (error) {
       res.status(500).json({ message: "Error interno del servidor" });
     }
@@ -1177,24 +1187,26 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
   app.post("/api/personas-casos/by-abonado/:abonado", authenticateToken, async (req: any, res) => {
     try {
       const { abonado } = req.params;
-      const { cedula, nombre, apellido, pseudonimo, fechaDeNacimiento, correo, direccion, expediente } = req.body;
+      const { cedula, nombre, apellido, pseudonimo, fechaDeNacimiento, correo, direccion, expediente, otrosTlf, rol } = req.body;
       const persona = await storage.upsertPersonaCasoByAbonado(abonado, {
         cedula: cedula || null,
         nombre: nombre || null,
         apellido: apellido || null,
         fechaDeNacimiento: fechaDeNacimiento || null,
-        correo: correo || null,
         direccion: direccion || null,
       });
 
-      // Si viene un expediente, actualizar el expedienteSujeto correspondiente
-      if (expediente) {
+      // Si viene un expediente, correo, otrosTlf o rol, actualizar el expedienteSujeto correspondiente
+      if (expediente || correo || otrosTlf || rol) {
         const exps = await storage.getExpedientesSujetosByPersonaId(persona.nro);
         const expConTelefono = exps.find((e: any) => e.telefonoCaso === abonado);
         if (expConTelefono) {
           await storage.updateExpedienteSujeto(expConTelefono.id, {
-            expediente,
+            ...(expediente ? { expediente } : {}),
             pseudonimo: pseudonimo || expConTelefono.pseudonimo || undefined,
+            ...(correo ? { correo } : {}),
+            ...(otrosTlf ? { otrosTlf } : {}),
+            ...(rol ? { rol } : {}),
           });
         }
       }

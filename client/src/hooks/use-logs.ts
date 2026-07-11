@@ -19,6 +19,7 @@ export interface LogActividadUI {
   modulo: string;
   ip: string;
   resultado: string;
+  detalle?: string;
 }
 
 export interface LogErrorUI {
@@ -67,6 +68,7 @@ function mapActividad(row: any): LogActividadUI {
     modulo: row.modulo,
     ip: row.ip || "-",
     resultado: row.resultado,
+    detalle: row.detalle || undefined,
   };
 }
 

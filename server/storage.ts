@@ -1346,11 +1346,9 @@ export class DatabaseStorage implements IStorage {
       const searchTerm = `%${filters.search}%`;
       whereConditions.push(
         or(
-          like(personasCasos.telefono, searchTerm),
           like(personasCasos.cedula, searchTerm),
           like(personasCasos.nombre, searchTerm),
-          like(personasCasos.apellido, searchTerm),
-          like(personasCasos.expediente, searchTerm)
+          like(personasCasos.apellido, searchTerm)
         )
       );
     }
