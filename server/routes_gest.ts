@@ -13,6 +13,17 @@ import { db } from './db';
 import { and, eq, sql } from 'drizzle-orm';
 import { logger } from './monitor/logger';
 
+/**
+ * Convierte un tamaño en bytes a texto en KB con 2 decimales y coma
+ * decimal (formato es-ES), ej: 98,00 KB.
+ */
+function formatearPesoKB(bytes: any): string {
+  const n = Number(bytes);
+  if (!n || isNaN(n) || n <= 0) return '';
+  const kb = n / 1024;
+  return `${kb.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KB`;
+}
+
 // Al inicio del archivo routes_gest.ts
 const swiPdf = {
   downloadAsPdf: false,
@@ -699,14 +710,29 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
         : [];
 
       // Construir abonados_lista para la plantilla de Contacto Frecuente
-      // Cada item: { NUM_ORD, NUMERO, DESDE, HASTA, CONTACTOS_TEXTO }
+      // Cada item: { NUM_ORD, NUMERO, DESDE, HASTA, CONTACTOS_TEXTO, datos filiatorios }
       const abonados_lista: Array<{
         NUM_ORD: string;
         NUMERO: string;
         DESDE: string;
         HASTA: string;
         CONTACTOS_TEXTO: string;
+        CEDULA: string;
+        NOMBRE: string;
+        APELLIDO: string;
+        FECHA_NAC: string;
+        CORREO: string;
+        STATUS_LINEA: string;
+        FECHA_ACTIVACION: string;
+        OTROS_TLF: string;
+        DIRECCION: string;
       }> = [];
+
+      // Texto con los archivos Excel adjuntos (uno por abonado), en el
+      // formato "nombre1, con un peso de peso1, nombre2, con un peso de peso2"
+      // para que se repita dentro de la misma oración cuando hay varios
+      // números analizados.
+      let archivosExcelTexto = '';
 
       if (tipoExperticia === 'determinar_contacto_frecuente') {
         const datosAnalisis = Array.isArray(requestData.datosAnalisis)
@@ -728,8 +754,27 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
               DESDE: regFechas.desde || '',
               HASTA: regFechas.hasta || '',
               CONTACTOS_TEXTO: contactosTexto,
+              // Datos filiatorios del abonado, provenientes del formulario
+              // (sin consultar la base de datos).
+              CEDULA: item.cedula || '',
+              NOMBRE: item.nombre || '',
+              APELLIDO: item.apellido || '',
+              FECHA_NAC: item.fechaDeNacimiento || '',
+              CORREO: item.correo || '',
+              STATUS_LINEA: item.statusLinea || '',
+              FECHA_ACTIVACION: item.fechaActivacion || '',
+              OTROS_TLF: item.otrosTlf || '',
+              DIRECCION: item.direccion || '',
             });
           });
+
+          archivosExcelTexto = datosAnalisis
+            .filter((item: any) => item.archivoNombre)
+            .map((item: any) => {
+              const peso = formatearPesoKB(item.tamanoArchivo);
+              return peso ? `${item.archivoNombre}, con un peso de ${peso}` : item.archivoNombre;
+            })
+            .join(', ');
         } else if (requestData.abonado) {
           // Modo individual (un solo abonado)
           const top10: any[] = Array.isArray(requestData.todosLosContactos)
@@ -746,7 +791,23 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
             DESDE: regFechas.desde || '',
             HASTA: regFechas.hasta || '',
             CONTACTOS_TEXTO: contactosTexto,
+            CEDULA: requestData.cedula || '',
+            NOMBRE: requestData.nombre || '',
+            APELLIDO: requestData.apellido || '',
+            FECHA_NAC: requestData.fechaDeNacimiento || '',
+            CORREO: requestData.correo || '',
+            STATUS_LINEA: requestData.statusLinea || '',
+            FECHA_ACTIVACION: requestData.fechaActivacion || '',
+            OTROS_TLF: requestData.otrosTlf || '',
+            DIRECCION: requestData.direccion || '',
           });
+
+          if (requestData.nombreArchivo) {
+            const peso = formatearPesoKB(requestData.tamañoArchivo);
+            archivosExcelTexto = peso
+              ? `${requestData.nombreArchivo}, con un peso de ${peso}`
+              : requestData.nombreArchivo;
+          }
         }
       }
 
@@ -764,7 +825,9 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
         OPER: (requestData.operador || '').toUpperCase(),
         FRR: requestData.respuestaFechaCorreo || '',
         RTIME: requestData.horaRespuestaCorreo || '',
-        EXCEL: requestData.nombreArchivo || '',
+        EXCEL: tipoExperticia === 'determinar_contacto_frecuente'
+          ? archivosExcelTexto
+          : (requestData.nombreArchivo || ''),
         TAMAÑO: requestData.tamañoArchivo ? Number(requestData.tamañoArchivo).toLocaleString('es-ES') : '',
         EXP: requestData.expediente || '',
         DIREC: requestData.motivo || '',

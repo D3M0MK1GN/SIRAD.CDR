@@ -555,6 +555,7 @@ type AnalisisItem = {
   numero: string;
   archivoNombre: string;
   archivoCrudo: File;
+  tamanoArchivo: number;
   operador: string;
   resultados: {
     bts?: any[];
@@ -1119,6 +1120,7 @@ export function ExperticiasForm({
       numero: string;
       archivoNombre: string;
       archivoCrudo: File;
+      tamanoArchivo: number;
       operador: string;
       resultados: {
         bts?: any[];
@@ -1162,6 +1164,7 @@ export function ExperticiasForm({
       numero,
       archivoNombre: file.name,
       archivoCrudo: file,
+      tamanoArchivo: file.size,
       operador,
       resultados: null,
     };
@@ -1773,17 +1776,42 @@ export function ExperticiasForm({
     const esContactoFrecuente = tipoExperticiaValue === "determinar_contacto_frecuente";
     const esMultiTarget = listaAnalisis.length > 0;
 
+    // Asegurar que el mapa de afiliados refleje los datos del abonado
+    // actualmente visible en pantalla ANTES de construir datosAnalisis,
+    // para no perder los datos filiatorios recién editados.
+    if (esContactoFrecuente && esMultiTarget && selectedIndex !== null && listaAnalisis[selectedIndex]) {
+      afiliadosMapRef.current[listaAnalisis[selectedIndex].numero] = afiliadoData;
+    }
+
     if (esContactoFrecuente && esMultiTarget) {
       // MODO MULTI-TARGET: construir array JSONB con un objeto por cada número analizado
       const itemsConResultados = listaAnalisis.filter(
         (item) => item.resultados?.contactos
       );
 
-      datosAnalisis = itemsConResultados.map((item) => ({
-        numero:      item.numero,
-        datos_crudos: item.resultados!.contactos!.datosCrudos  ?? [],
-        top_10:      item.resultados!.contactos!.todosLosContactos ?? [],
-      }));
+      datosAnalisis = itemsConResultados.map((item) => {
+        const datosAfiliado = afiliadosMapRef.current[item.numero];
+        return {
+          numero:      item.numero,
+          datos_crudos: item.resultados!.contactos!.datosCrudos  ?? [],
+          top_10:      item.resultados!.contactos!.todosLosContactos ?? [],
+          // Datos filiatorios del abonado, tomados directamente del formulario
+          // (ya capturados en afiliadosMapRef), sin consultar la base de datos.
+          cedula: datosAfiliado?.cedula || "",
+          nombre: datosAfiliado?.nombre || "",
+          apellido: datosAfiliado?.apellido || "",
+          fechaDeNacimiento: datosAfiliado?.fechaDeNacimiento || "",
+          correo: datosAfiliado?.correo || "",
+          direccion: datosAfiliado?.direccion || "",
+          statusLinea: datosAfiliado?.statusLinea || "",
+          fechaActivacion: datosAfiliado?.fechaActivacion || "",
+          otrosTlf: datosAfiliado?.otrosTlf || "",
+          // Archivo Excel propio de este abonado (para repetir en el
+          // documento el nombre y peso de cada archivo, uno por número).
+          archivoNombre: item.archivoNombre || "",
+          tamanoArchivo: item.tamanoArchivo || 0,
+        };
+      });
 
       // El campo abonado guarda todos los números separados por coma
       (data as any).abonado = itemsConResultados.length > 0
@@ -1821,6 +1849,17 @@ export function ExperticiasForm({
 
     if (esContactoFrecuente && !esMultiTarget) {
       submitData.todosLosContactos = contactosFrecuentesState.todosLosContactos;
+      // Datos filiatorios del único abonado (modo individual), tomados
+      // directamente del formulario, sin consultar la base de datos.
+      submitData.cedula = afiliadoData.cedula || "";
+      submitData.nombre = afiliadoData.nombre || "";
+      submitData.apellido = afiliadoData.apellido || "";
+      submitData.fechaDeNacimiento = afiliadoData.fechaDeNacimiento || "";
+      submitData.correo = afiliadoData.correo || "";
+      submitData.direccion = afiliadoData.direccion || "";
+      submitData.statusLinea = afiliadoData.statusLinea || "";
+      submitData.fechaActivacion = afiliadoData.fechaActivacion || "";
+      submitData.otrosTlf = afiliadoData.otrosTlf || "";
     }
 
     // Asegurar que el número actualmente visible queda guardado en el mapa

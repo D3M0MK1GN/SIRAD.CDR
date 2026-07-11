@@ -4213,5 +4213,33 @@
             }
         },
         "success": true
+    },
+    {
+        "timestamp": "2026-07-11T13:01:36.225070",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "17640034",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=9314&token=15f625d3f55b6749c7a54c54b6235c98&nacionalidad=V&cedula=17640034",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 17640034,
+                "fecha_nac": "1981-09-15",
+                "rif": "V176400346",
+                "cne": {
+                    "estado": "LARA",
+                    "municipio": "JIMENEZ",
+                    "parroquia": "JUAN B RODRIGUEZ",
+                    "centro_electoral": "ALDEA UNIVERSITARIA MANUELA SAENZ - MISION SUCRE"
+                },
+                "primer_apellido": "BONILLA",
+                "segundo_apellido": "BONILLA",
+                "primer_nombre": "LUISANA",
+                "segundo_nombre": "DEL VALLE",
+                "request_date": "2026-07-11T17:01:36.161Z"
+            }
+        },
+        "success": true
     }
 ]
