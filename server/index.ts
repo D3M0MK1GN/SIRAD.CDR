@@ -12,7 +12,9 @@ const app = express();
 // Trust proxy para obtener IP correcta en entornos con proxy
 app.set('trust proxy', true);
 
-app.use(express.json({ limit: '20mb' }));
+const JSON_BODY_LIMIT = '50mb';
+
+app.use(express.json({ limit: JSON_BODY_LIMIT }));
 
 // Middleware para obtener IP del cliente
 app.use((req, res, next) => {
@@ -55,7 +57,7 @@ app.use((req, res, next) => {
   req.clientIp = getClientIp(req);
   next();
 });
-app.use(express.urlencoded({ extended: false, limit: '20mb' }));
+app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -89,6 +91,37 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
+
+  // Manejador específico para PayloadTooLargeError (request entity too large).
+  // Debe ir antes del manejador genérico para evitar respuestas confusas.
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    const isPayloadTooLarge =
+      err.type === 'entity.too.large' ||
+      err.name === 'PayloadTooLargeError' ||
+      err.status === 413 ||
+      err.statusCode === 413;
+
+    if (!isPayloadTooLarge) {
+      return next(err);
+    }
+
+    const contentLength = req.headers['content-length'];
+    const recibidoBytes = contentLength ? parseInt(contentLength, 10) : undefined;
+    const recibidoMB = recibidoBytes ? (recibidoBytes / (1024 * 1024)).toFixed(2) : 'desconocido';
+
+    const errorInfo = {
+      error: 'PayloadTooLargeError',
+      message: 'El cuerpo de la petición excede el límite permitido por el servidor.',
+      limite: JSON_BODY_LIMIT,
+      recibido: recibidoMB === 'desconocido' ? recibidoMB : `${recibidoMB}MB`,
+      ruta: req.path,
+      metodo: req.method,
+      sugerencia: 'Reduzca el tamaño de la carga o divida la operación en partes más pequeñas.',
+    };
+
+    console.error('[PayloadTooLargeError]', errorInfo);
+    res.status(413).json(errorInfo);
+  });
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -42,6 +44,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { CargarDatosModal } from "@/components/cargar-datos-modal";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -59,9 +62,16 @@ interface ResultadoBusqueda {
 export default function Trazabilidad() {
   const { isOpen } = useSidebarContext();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.rol === "admin";
   const [tipoBusqueda, setTipoBusqueda] = useState<string>("cedula");
   const [valorBusqueda, setValorBusqueda] = useState<string>("");
   const [resultados, setResultados] = useState<ResultadoBusqueda[]>([]);
+  const [numerosSinExpediente, setNumerosSinExpediente] = useState<
+    { numero: string; imeiCoincidente: string; cantidadRegistros: number; primeraFecha: string | null; ultimaFecha: string | null }[]
+  >([]);
+  const [filtroNumeroImei, setFiltroNumeroImei] = useState("");
+  const [busquedaAvanzada, setBusquedaAvanzada] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
   // Estados para modales
@@ -76,6 +86,9 @@ export default function Trazabilidad() {
   const [personaData, setPersonaData] = useState<any>(null);
   const [registrosData, setRegistrosData] = useState<any[]>([]);
   const [coincidenciasData, setCoincidenciasData] = useState<any>(null);
+  const [terceroFiltro, setTerceroFiltro] = useState("");
+  const [terceroPagina, setTerceroPagina] = useState(1);
+  const [terceroPorPagina, setTerceroPorPagina] = useState<string>("10");
   const [analisisData, setAnalisisData] = useState<any>(null);
   const [loadingModal, setLoadingModal] = useState(false);
   const [currentExperticiaId, setCurrentExperticiaId] = useState<number | undefined>(undefined);
@@ -100,10 +113,12 @@ export default function Trazabilidad() {
     setIsSearching(true);
 
     try {
+      const avanzadaParam =
+        tipoBusqueda === "numero" && busquedaAvanzada ? "&avanzada=true" : "";
       const response = await fetch(
         `/api/trazabilidad/buscar?tipo=${tipoBusqueda}&valor=${encodeURIComponent(
           valorBusqueda
-        )}`,
+        )}${avanzadaParam}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -114,6 +129,8 @@ export default function Trazabilidad() {
       if (response.ok) {
         const data = await response.json();
         setResultados(data.resultados || []);
+        setNumerosSinExpediente(data.numerosSinExpediente || []);
+        setFiltroNumeroImei("");
         if (data.total === 0) {
           toast({
             title: "Sin resultados",
@@ -124,6 +141,7 @@ export default function Trazabilidad() {
         }
       } else {
         setResultados([]);
+        setNumerosSinExpediente([]);
         toast({
           title: "Error",
           description: "No se pudo realizar la búsqueda",
@@ -133,6 +151,7 @@ export default function Trazabilidad() {
     } catch (error) {
       console.error("Error al buscar:", error);
       setResultados([]);
+      setNumerosSinExpediente([]);
       toast({
         title: "Error",
         description: "Ocurrió un error al buscar",
@@ -386,15 +405,19 @@ export default function Trazabilidad() {
     }
   };
 
-  const handleCoincidencias = async (numero: string) => {
+  const handleCoincidencias = async (numero: string, expediente?: string) => {
     // Limpiar datos anteriores antes de abrir el modal
     setCoincidenciasData(null);
+    setTerceroFiltro("");
+    setTerceroPagina(1);
+    setTerceroPorPagina("10");
     setLoadingModal(true);
     setShowCoincidenciasModal(true);
 
     try {
+      const query = expediente ? `?expediente=${encodeURIComponent(expediente)}` : "";
       const response = await fetch(
-        `/api/trazabilidad/coincidencias/${encodeURIComponent(numero)}`,
+        `/api/trazabilidad/coincidencias/${encodeURIComponent(numero)}${query}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -751,7 +774,13 @@ export default function Trazabilidad() {
             <CardContent>
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1">
-                  <Select value={tipoBusqueda} onValueChange={setTipoBusqueda}>
+                  <Select
+                    value={tipoBusqueda}
+                    onValueChange={(value) => {
+                      setTipoBusqueda(value);
+                      setBusquedaAvanzada(false);
+                    }}
+                  >
                     <SelectTrigger data-testid="select-tipo-busqueda">
                       <SelectValue placeholder="Seleccionar tipo de búsqueda" />
                     </SelectTrigger>
@@ -760,9 +789,26 @@ export default function Trazabilidad() {
                       <SelectItem value="nombre">Nombre</SelectItem>
                       <SelectItem value="seudonimo">Seudónimo</SelectItem>
                       <SelectItem value="numero">Número Telefónico</SelectItem>
+                      {isAdmin && <SelectItem value="imei">IMEI</SelectItem>}
                       <SelectItem value="expediente">Expediente</SelectItem>
                     </SelectContent>
                   </Select>
+                  {tipoBusqueda === "numero" && isAdmin && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <Switch
+                        id="switch-busqueda-avanzada"
+                        data-testid="switch-busqueda-avanzada"
+                        checked={busquedaAvanzada}
+                        onCheckedChange={setBusquedaAvanzada}
+                      />
+                      <Label
+                        htmlFor="switch-busqueda-avanzada"
+                        className="text-sm text-gray-600 cursor-pointer"
+                      >
+                        Búsqueda avanzada (por registros de comunicación)
+                      </Label>
+                    </div>
+                  )}
                 </div>
                 <div className="flex-[2]">
                   <Input
@@ -777,6 +823,8 @@ export default function Trazabilidad() {
                         ? "el seudónimo"
                         : tipoBusqueda === "numero"
                         ? "el número"
+                        : tipoBusqueda === "imei"
+                        ? "el IMEI"
                         : "el expediente"
                     }`}
                     value={valorBusqueda}
@@ -912,17 +960,19 @@ export default function Trazabilidad() {
                               >
                                 <Phone className="h-3 w-3" />
                               </Button>
-                              <Button
-                                data-testid={`button-coincidencias-${index}`}
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  handleCoincidencias(resultado.numeroAsociado)
-                                }
-                                title="Coincidencias"
-                              >
-                                <GitMerge className="h-3 w-3" />
-                              </Button>
+                              {isAdmin && (
+                                <Button
+                                  data-testid={`button-coincidencias-${index}`}
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleCoincidencias(resultado.numeroAsociado, resultado.expediente)
+                                  }
+                                  title="Coincidencias"
+                                >
+                                  <GitMerge className="h-3 w-3" />
+                                </Button>
+                              )}
                               <Button
                                 data-testid={`button-edit-${index}`}
                                 size="sm"
@@ -957,6 +1007,102 @@ export default function Trazabilidad() {
               )}
             </CardContent>
           </Card>
+
+          {/* Resultados adicionales de búsqueda por IMEI o Número (avanzada): números sin expediente asociado */}
+          {(tipoBusqueda === "imei" ||
+            (tipoBusqueda === "numero" && busquedaAvanzada)) &&
+            numerosSinExpediente.length > 0 && (
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>
+                  Números sin expediente asociado ({numerosSinExpediente.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4">
+                  <Input
+                    data-testid="input-filtro-numero-imei"
+                    type="text"
+                    placeholder="Filtrar por número..."
+                    value={filtroNumeroImei}
+                    onChange={(e) => setFiltroNumeroImei(e.target.value)}
+                    className="max-w-sm"
+                  />
+                </div>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Número</TableHead>
+                        {tipoBusqueda === "imei" && (
+                          <TableHead>IMEI Coincidente</TableHead>
+                        )}
+                        <TableHead>Cantidad de Registros</TableHead>
+                        <TableHead>Primera Fecha</TableHead>
+                        <TableHead>Última Fecha</TableHead>
+                        <TableHead className="text-center w-[150px]">
+                          Acciones
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {numerosSinExpediente
+                        .filter((n) =>
+                          n.numero
+                            .toLowerCase()
+                            .includes(filtroNumeroImei.trim().toLowerCase())
+                        )
+                        .map((n, index) => (
+                          <TableRow
+                            key={n.numero}
+                            data-testid={`row-numero-sin-expediente-${index}`}
+                          >
+                            <TableCell
+                              data-testid={`text-numero-imei-${index}`}
+                              className="font-medium"
+                            >
+                              {n.numero}
+                            </TableCell>
+                            {tipoBusqueda === "imei" && (
+                              <TableCell>{n.imeiCoincidente}</TableCell>
+                            )}
+                            <TableCell>{n.cantidadRegistros}</TableCell>
+                            <TableCell>{n.primeraFecha || "N/A"}</TableCell>
+                            <TableCell>{n.ultimaFecha || "N/A"}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap gap-1 justify-center">
+                                <Button
+                                  data-testid={`button-analizar-imei-${index}`}
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleAnalizarTraza(n.numero)
+                                  }
+                                  title="Analizar Traza"
+                                >
+                                  <Activity className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  data-testid={`button-registros-imei-${index}`}
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    handleVerRegistros(n.numero)
+                                  }
+                                  title="Ver Registros"
+                                >
+                                  <Phone className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -1411,72 +1557,230 @@ export default function Trazabilidad() {
           {loadingModal ? (
             <div className="py-8 text-center text-gray-500">Cargando...</div>
           ) : coincidenciasData ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {/* Resumen */}
               <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg flex flex-wrap gap-4 text-sm text-amber-900">
                 <span><strong>Número analizado:</strong> {coincidenciasData.numeroAnalizado}</span>
-                <span><strong>Total contactos únicos:</strong> {coincidenciasData.totalContactos}</span>
-                <span><strong>Coincidencias registradas:</strong> {coincidenciasData.coincidenciasEncontradas}</span>
+                <span><strong>Expediente:</strong> {coincidenciasData.expediente || "N/A"}</span>
+                <span><strong>Números del expediente:</strong> {coincidenciasData.numerosExpediente?.length || 0}</span>
+                <span><strong>Terceros en común:</strong> {coincidenciasData.terceros?.length || 0}</span>
+                <span><strong>IMEIs compartidos:</strong> {coincidenciasData.imeisCompartidos?.length || 0}</span>
               </div>
 
-              <p className="text-xs text-gray-500">
-                Los siguientes números registran comunicaciones directas con el objetivo analizado y están plenamente identificados en el sistema.
-              </p>
+              {/* Terceros en común */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold text-gray-800">Terceros en común del expediente</h4>
+                <p className="text-xs text-gray-500">
+                  Números que se comunicaron con dos o más números del mismo expediente (ordenados de mayor a menor comunicación).
+                </p>
 
-              {coincidenciasData.coincidencias && coincidenciasData.coincidencias.length > 0 ? (
-                <div className="border rounded-md overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-gray-50">
-                      <TableRow>
-                        <TableHead className="text-xs font-bold text-gray-700">Teléfono Interlocutor</TableHead>
-                        <TableHead className="text-xs font-bold text-gray-700">Cédula / Identificación</TableHead>
-                        <TableHead className="text-xs font-bold text-gray-700">Nombre Completo</TableHead>
-                        <TableHead className="text-xs font-bold text-gray-700">Expedientes</TableHead>
-                        <TableHead className="text-xs font-bold text-gray-700">Estatus</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {coincidenciasData.coincidencias.map((coincidencia: any, idx: number) => (
-                        <TableRow key={idx} className="hover:bg-gray-50 align-top">
-                          <TableCell className="font-mono text-xs font-bold text-blue-600 whitespace-nowrap">
-                            📞 {coincidencia.numeroContactado}
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            {coincidencia.persona.cedula || "N/A"}
-                          </TableCell>
-                          <TableCell className="text-xs font-medium uppercase">
-                            {coincidencia.persona.nombreCompleto || "Desconocido"}
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            {coincidencia.persona.expedientes && coincidencia.persona.expedientes.length > 0 ? (
+                {coincidenciasData.terceros && coincidenciasData.terceros.length > 0 && (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <Input
+                      data-testid="input-filtro-tercero"
+                      placeholder="Buscar número..."
+                      value={terceroFiltro}
+                      onChange={(e) => {
+                        setTerceroFiltro(e.target.value);
+                        setTerceroPagina(1);
+                      }}
+                      className="max-w-xs h-8 text-xs"
+                    />
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs text-gray-600 whitespace-nowrap">Por página:</Label>
+                      <Select
+                        value={terceroPorPagina}
+                        onValueChange={(value) => {
+                          setTerceroPorPagina(value);
+                          setTerceroPagina(1);
+                        }}
+                      >
+                        <SelectTrigger data-testid="select-tercero-por-pagina" className="h-8 w-24 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="10">10</SelectItem>
+                          <SelectItem value="25">25</SelectItem>
+                          <SelectItem value="todos">Todos</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                {(() => {
+                  const todosTerceros = coincidenciasData.terceros || [];
+                  const filtro = terceroFiltro.trim();
+                  const tercerosFiltrados = filtro
+                    ? todosTerceros.filter((t: any) => t.numero.includes(filtro))
+                    : todosTerceros;
+
+                  const porPagina =
+                    terceroPorPagina === "todos" ? tercerosFiltrados.length || 1 : parseInt(terceroPorPagina, 10);
+                  const totalPaginasTerceros = Math.max(1, Math.ceil(tercerosFiltrados.length / porPagina));
+                  const paginaSegura = Math.min(terceroPagina, totalPaginasTerceros);
+                  const inicio = (paginaSegura - 1) * porPagina;
+                  const tercerosPagina = tercerosFiltrados.slice(inicio, inicio + porPagina);
+
+                  if (todosTerceros.length === 0) {
+                    return (
+                      <div className="py-6 text-center text-sm text-gray-500 border border-dashed rounded-lg">
+                        No se hallaron terceros en común entre los números de este expediente.
+                      </div>
+                    );
+                  }
+
+                  if (tercerosFiltrados.length === 0) {
+                    return (
+                      <div className="py-6 text-center text-sm text-gray-500 border border-dashed rounded-lg">
+                        Ningún tercero coincide con "{filtro}".
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <div className="border rounded-md overflow-hidden">
+                        <Table>
+                          <TableHeader className="bg-gray-50">
+                            <TableRow>
+                              <TableHead className="text-xs font-bold text-gray-700">Número Tercero</TableHead>
+                              <TableHead className="text-xs font-bold text-gray-700">Cédula</TableHead>
+                              <TableHead className="text-xs font-bold text-gray-700">Nombre Completo</TableHead>
+                              <TableHead className="text-xs font-bold text-gray-700">Números del expediente contactados</TableHead>
+                              <TableHead className="text-xs font-bold text-gray-700">Total registros</TableHead>
+                              <TableHead className="text-xs font-bold text-gray-700">Estatus</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {tercerosPagina.map((tercero: any, idx: number) => (
+                              <TableRow key={idx} className="hover:bg-gray-50 align-top">
+                                <TableCell className="font-mono text-xs font-bold text-blue-600 whitespace-nowrap">
+                                  📞 {tercero.numero}
+                                </TableCell>
+                                <TableCell className="text-xs">{tercero.cedula || "N/A"}</TableCell>
+                                <TableCell className="text-xs font-medium uppercase">
+                                  {tercero.nombreCompleto || "Desconocido"}
+                                </TableCell>
+                                <TableCell className="text-xs">
+                                  <div className="space-y-1">
+                                    {tercero.numerosExpedienteContactados.map((nc: any, ni: number) => (
+                                      <div key={ni} className="bg-gray-50 rounded px-2 py-1">
+                                        <span className="font-mono">{nc.numero}</span>{" "}
+                                        <span className="text-gray-500">({nc.cantidadRegistros} reg.)</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-xs font-semibold">{tercero.totalRegistros}</TableCell>
+                                <TableCell>
+                                  <span
+                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                      tercero.catalogado
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-gray-100 text-gray-600"
+                                    }`}
+                                  >
+                                    {tercero.catalogado ? "Catalogado" : "No catalogado"}
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+
+                      {terceroPorPagina !== "todos" && totalPaginasTerceros > 1 && (
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-xs text-gray-500">
+                            Mostrando {inicio + 1}–{Math.min(inicio + porPagina, tercerosFiltrados.length)} de{" "}
+                            {tercerosFiltrados.length}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              data-testid="button-tercero-pagina-anterior"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setTerceroPagina((prev) => Math.max(1, prev - 1))}
+                              disabled={paginaSegura <= 1}
+                            >
+                              <ChevronLeft className="h-3 w-3" />
+                            </Button>
+                            <span className="text-xs">
+                              Página {paginaSegura} de {totalPaginasTerceros}
+                            </span>
+                            <Button
+                              data-testid="button-tercero-pagina-siguiente"
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                setTerceroPagina((prev) => Math.min(totalPaginasTerceros, prev + 1))
+                              }
+                              disabled={paginaSegura >= totalPaginasTerceros}
+                            >
+                              <ChevronRight className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+
+              {/* IMEIs compartidos */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-bold text-gray-800">IMEIs compartidos (alcance global)</h4>
+                <p className="text-xs text-gray-500">
+                  IMEIs usados por los números del expediente que también han sido utilizados por otros números en todo el sistema.
+                </p>
+                {coincidenciasData.imeisCompartidos && coincidenciasData.imeisCompartidos.length > 0 ? (
+                  <div className="border rounded-md overflow-hidden">
+                    <Table>
+                      <TableHeader className="bg-gray-50">
+                        <TableRow>
+                          <TableHead className="text-xs font-bold text-gray-700">IMEI</TableHead>
+                          <TableHead className="text-xs font-bold text-gray-700">Números que lo han usado</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {coincidenciasData.imeisCompartidos.map((imeiRow: any, idx: number) => (
+                          <TableRow key={idx} className="hover:bg-gray-50 align-top">
+                            <TableCell className="font-mono text-xs font-bold text-purple-700 whitespace-nowrap">
+                              {imeiRow.imei}
+                            </TableCell>
+                            <TableCell className="text-xs">
                               <div className="space-y-1">
-                                {coincidencia.persona.expedientes.map((exp: any, ei: number) => (
-                                  <div key={ei} className="bg-gray-50 rounded px-2 py-1 space-y-0.5">
-                                    <p className="text-gray-700"><span className="font-medium">Exp:</span> {exp.expediente}</p>
-                                    <p className="text-gray-600"><span className="font-medium">Delito:</span> {exp.delito}</p>
-                                    {exp.fiscalia !== "—" && <p className="text-gray-500"><span className="font-medium">Fiscalía:</span> {exp.fiscalia}</p>}
+                                {imeiRow.numeros.map((n: any, ni: number) => (
+                                  <div key={ni} className="bg-gray-50 rounded px-2 py-1 flex flex-wrap items-center gap-2">
+                                    <span className="font-mono font-semibold">{n.numero}</span>
+                                    {n.esDelExpediente && (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800">
+                                        Del expediente
+                                      </span>
+                                    )}
+                                    {n.catalogado ? (
+                                      <span className="text-gray-600">
+                                        {n.nombreCompleto} ({n.cedula || "N/A"})
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-400 italic">No catalogado</span>
+                                    )}
                                   </div>
                                 ))}
                               </div>
-                            ) : (
-                              <span className="text-gray-400 italic">Sin expedientes</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              Catalogado
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="py-8 text-center text-sm text-gray-500 border border-dashed rounded-lg">
-                  No se hallaron números cruzados registrados en la base de datos para este número.
-                </div>
-              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="py-6 text-center text-sm text-gray-500 border border-dashed rounded-lg">
+                    No se hallaron IMEIs compartidos entre los números de este expediente y otros números del sistema.
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="py-8 text-center text-gray-500">

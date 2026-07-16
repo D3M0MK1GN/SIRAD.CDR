@@ -199,6 +199,7 @@ export interface IStorage {
   getPersonaTelefonoByNumero(numero: string): Promise<PersonaTelefono | undefined>;
   createPersonaTelefono(telefono: InsertPersonaTelefono): Promise<PersonaTelefono>;
   upsertPersonaTelefono(data: InsertPersonaTelefono): Promise<PersonaTelefono>;
+  upsertPersonaTelefonosBulk(data: InsertPersonaTelefono[]): Promise<PersonaTelefono[]>;
   createPersonaTelefonosBulk(telefonos: InsertPersonaTelefono[]): Promise<PersonaTelefono[]>;
   updatePersonaTelefono(id: number, telefono: Partial<InsertPersonaTelefono>): Promise<PersonaTelefono | undefined>;
   deletePersonaTelefono(id: number): Promise<boolean>;
@@ -215,6 +216,8 @@ export interface IStorage {
   getRegistroComunicacionById(registroId: number): Promise<RegistroComunicacion | undefined>;
   getRegistrosComunicacionByAbonado(abonado: string, expedienteSujetoId?: number): Promise<RegistroComunicacion[]>;
   getRegistrosComunicacionByTelefonoIds(telefonoIds: number[]): Promise<RegistroComunicacion[]>;
+  getRegistrosComunicacionByExperticiaId(experticiaId: number): Promise<RegistroComunicacion[]>;
+  getContactoFrecuenteReconstruido(experticiaId: number): Promise<any[]>;
   createRegistroComunicacion(registro: InsertRegistroComunicacion): Promise<RegistroComunicacion>;
   createRegistrosComunicacionBulk(registros: InsertRegistroComunicacion[]): Promise<void>;
   updateRegistroComunicacion(registroId: number, registro: Partial<InsertRegistroComunicacion>): Promise<RegistroComunicacion | undefined>;
@@ -1559,6 +1562,115 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(registrosComunicacion.fecha));
   }
 
+  async getRegistrosComunicacionByExperticiaId(experticiaId: number): Promise<RegistroComunicacion[]> {
+    return await db
+      .select()
+      .from(registrosComunicacion)
+      .where(eq(registrosComunicacion.experticiaId, experticiaId))
+      .orderBy(desc(registrosComunicacion.fecha));
+  }
+
+  /**
+   * Reconstruye la estructura "datosAnalisis" (usada por la plantilla Word de
+   * "determinar contacto frecuente") a partir de los registros normalizados en
+   * registros_comunicacion, persona_telefonos, expedientes_sujetos y
+   * personas_casos. Sustituye a la antigua columna JSONB experticias.datos_analisis,
+   * que guardaba lo mismo de forma redundante.
+   */
+  async getContactoFrecuenteReconstruido(experticiaId: number): Promise<any[]> {
+    const registros = await this.getRegistrosComunicacionByExperticiaId(experticiaId);
+    if (registros.length === 0) return [];
+
+    // Agrupar filas por el número analizado (abonadoA)
+    const grupos = new Map<string, RegistroComunicacion[]>();
+    for (const registro of registros) {
+      const key = registro.abonadoA;
+      if (!grupos.has(key)) grupos.set(key, []);
+      grupos.get(key)!.push(registro);
+    }
+
+    const resultado: any[] = [];
+    for (const [numero, filas] of Array.from(grupos.entries())) {
+      // Top 10 de contactos más frecuentes (abonadoB) por cantidad de eventos
+      const conteo = new Map<string, number>();
+      for (const fila of filas) {
+        const contacto = (fila.abonadoB || "").trim();
+        if (!contacto) continue;
+        conteo.set(contacto, (conteo.get(contacto) || 0) + 1);
+      }
+      const top10 = Array.from(conteo.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([numeroContacto, cantidad]) => ({ numero: numeroContacto, cantidad }));
+
+      // Datos filiatorios del abonado analizado
+      const filaRef = filas.find((f: RegistroComunicacion) => f.abonadoAId || f.expedienteSujetoId) || filas[0];
+      let statusLinea = "";
+      let fechaActivacion = "";
+      let correo = "";
+      let otrosTlf = "";
+      let cedula = "";
+      let nombre = "";
+      let apellido = "";
+      let fechaDeNacimiento = "";
+      let direccion = "";
+
+      if (filaRef.abonadoAId) {
+        const [telefono] = await db
+          .select()
+          .from(personaTelefonos)
+          .where(eq(personaTelefonos.id, filaRef.abonadoAId));
+        if (telefono) {
+          statusLinea = telefono.statusLinea || "";
+          fechaActivacion = telefono.fechaActivacion || "";
+        }
+      }
+
+      if (filaRef.expedienteSujetoId) {
+        const [expediente] = await db
+          .select()
+          .from(expedientesSujetos)
+          .where(eq(expedientesSujetos.id, filaRef.expedienteSujetoId));
+        if (expediente) {
+          correo = expediente.correo || "";
+          otrosTlf = expediente.otrosTlf || "";
+          if (expediente.personaId) {
+            const [persona] = await db
+              .select()
+              .from(personasCasos)
+              .where(eq(personasCasos.nro, expediente.personaId));
+            if (persona) {
+              cedula = persona.cedula || "";
+              nombre = persona.nombre || "";
+              apellido = persona.apellido || "";
+              fechaDeNacimiento = persona.fechaDeNacimiento || "";
+              direccion = persona.direccion || "";
+            }
+          }
+        }
+      }
+
+      const archivoNombre = filas.find((f: RegistroComunicacion) => f.archivo)?.archivo || "";
+
+      resultado.push({
+        numero,
+        top_10: top10,
+        cedula,
+        nombre,
+        apellido,
+        fechaDeNacimiento,
+        correo,
+        statusLinea,
+        fechaActivacion,
+        otrosTlf,
+        direccion,
+        archivoNombre,
+      });
+    }
+
+    return resultado;
+  }
+
   async createRegistroComunicacion(registro: InsertRegistroComunicacion): Promise<RegistroComunicacion> {
     const [newRegistro] = await db.insert(registrosComunicacion).values(registro).returning();
     return newRegistro;
@@ -1566,7 +1678,7 @@ export class DatabaseStorage implements IStorage {
 
   async createRegistrosComunicacionBulk(registros: InsertRegistroComunicacion[]): Promise<void> {
     if (registros.length === 0) return;
-    const CHUNK = 500;
+    const CHUNK = 1500;
     for (let i = 0; i < registros.length; i += CHUNK) {
       await db.insert(registrosComunicacion).values(registros.slice(i, i + CHUNK));
     }
@@ -1630,6 +1742,29 @@ export class DatabaseStorage implements IStorage {
     if (telefonos.length === 0) return [];
     const newTelefonos = await db.insert(personaTelefonos).values(telefonos).returning();
     return newTelefonos;
+  }
+
+  /**
+   * Upsert en lote de números analizados en persona_telefonos. Reemplaza el
+   * patrón N+1 de invocar upsertPersonaTelefono() una vez por número dentro
+   * de un loop: aquí se resuelven todos los números de una experticia en un
+   * único statement con ON CONFLICT, evitando 1 viaje de red por número.
+   */
+  async upsertPersonaTelefonosBulk(data: InsertPersonaTelefono[]): Promise<PersonaTelefono[]> {
+    if (data.length === 0) return [];
+    const rows = await db
+      .insert(personaTelefonos)
+      .values(data)
+      .onConflictDoUpdate({
+        target: personaTelefonos.numero,
+        set: {
+          personaId:       sql`COALESCE(EXCLUDED.persona_id,        persona_telefonos.persona_id)`,
+          statusLinea:     sql`COALESCE(EXCLUDED.status_linea,      persona_telefonos.status_linea)`,
+          fechaActivacion: sql`COALESCE(EXCLUDED.fecha_activacion,  persona_telefonos.fecha_activacion)`,
+        },
+      })
+      .returning();
+    return rows;
   }
 
   async updatePersonaTelefono(id: number, telefono: Partial<InsertPersonaTelefono>): Promise<PersonaTelefono | undefined> {

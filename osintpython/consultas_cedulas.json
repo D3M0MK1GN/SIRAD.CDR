@@ -4241,5 +4241,109 @@
             }
         },
         "success": true
+    },
+    {
+        "timestamp": "2026-07-12T14:53:15.154695",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "11581055",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=9314&token=15f625d3f55b6749c7a54c54b6235c98&nacionalidad=V&cedula=11581055",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 11581055,
+                "fecha_nac": "1968-04-29",
+                "rif": "V115810551",
+                "cne": {
+                    "estado": "LARA",
+                    "municipio": "IRIBARREN",
+                    "parroquia": "JUAN DE VILLEGAS",
+                    "centro_electoral": "UNIDAD ESCUELA NACIONAL CREACION BARRIOS DEL OESTE"
+                },
+                "primer_apellido": "MATHEUS",
+                "primer_nombre": "PEDRO",
+                "segundo_nombre": "ANTONIO",
+                "request_date": "2026-07-12T18:53:15.571Z"
+            }
+        },
+        "success": true
+    },
+    {
+        "timestamp": "2026-07-12T15:00:32.784426",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "18737351",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=9314&token=15f625d3f55b6749c7a54c54b6235c98&nacionalidad=V&cedula=18737351",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 18737351,
+                "fecha_nac": "1987-07-14",
+                "rif": "V187373510",
+                "cne": {
+                    "estado": "LARA",
+                    "municipio": "IRIBARREN",
+                    "parroquia": "UNION",
+                    "centro_electoral": "UNIDAD EDUCATIVA CRISTOBAL MENDOZA"
+                },
+                "primer_apellido": "MANZANO",
+                "segundo_apellido": "SALONES",
+                "primer_nombre": "DAYANA",
+                "segundo_nombre": "CAROLINA",
+                "request_date": "2026-07-12T19:00:33.200Z"
+            }
+        },
+        "success": true
+    },
+    {
+        "timestamp": "2026-07-12T15:01:52.033159",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "22323006",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=9314&token=15f625d3f55b6749c7a54c54b6235c98&nacionalidad=V&cedula=22323006",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 22323006,
+                "fecha_nac": "1995-04-24",
+                "rif": "V223230063",
+                "primer_apellido": "LOYO",
+                "segundo_apellido": "BARCO",
+                "primer_nombre": "DAVID",
+                "segundo_nombre": "ALEJANDRO",
+                "request_date": "2026-07-12T19:01:51.956Z"
+            }
+        },
+        "success": true
+    },
+    {
+        "timestamp": "2026-07-15T14:00:22.409981",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "17619391",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=9314&token=15f625d3f55b6749c7a54c54b6235c98&nacionalidad=V&cedula=17619391",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 17619391,
+                "fecha_nac": "1984-05-13",
+                "rif": "V176193911",
+                "cne": {
+                    "estado": "LARA",
+                    "municipio": "TORRES",
+                    "parroquia": "TRINIDAD SAMUEL",
+                    "centro_electoral": "ESCUELA BASICA BOLIVARIANA CARORA I"
+                },
+                "primer_apellido": "ALVAREZ",
+                "primer_nombre": "DAVID",
+                "segundo_nombre": "JOSE",
+                "request_date": "2026-07-15T18:00:22.365Z"
+            }
+        },
+        "success": true
     }
 ]

@@ -146,7 +146,9 @@ export function ExperticiasTable({
           body: {
             ...viewingExperticia,
             experticiaid: viewingExperticia.id,
-            datosAnalisis: viewingExperticia.datosAnalisis,
+            // Los datos crudos ya no viajan en la experticia (se eliminó la
+            // columna JSONB datos_analisis); el backend los reconstruye a
+            // partir de registros_comunicacion usando experticiaid.
           },
         }
       );
@@ -472,7 +474,7 @@ export function ExperticiasTable({
         open={!!viewingExperticia}
         onOpenChange={() => setViewingExperticia(null)}
       >
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-x-auto">
+        <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col overflow-hidden">
           <DialogHeader className="pb-4">
             <DialogTitle className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -506,7 +508,7 @@ export function ExperticiasTable({
           </DialogHeader>
           {/* Contenido del modal: secciones con información detallada */}
           {viewingExperticia && (
-            <div className="space-y-6 px-6 pb-6 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-6 px-6 pb-6 flex-1 overflow-y-auto">
               {/* Información básica */}
               <div className="space-y-4">
                 <h4 className="text-lg font-medium text-gray-900">
@@ -540,13 +542,15 @@ export function ExperticiasTable({
                 <h4 className="text-lg font-medium text-gray-900">Fechas</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <DetailField
-                    label="Fecha Comunicación"
+                    label="Fecha de Comunicación"
                     value={viewingExperticia.fechaComunicacion?.toString()}
                     isDate
                   />
                   <DetailField
-                    label="Fecha Respuesta"
-                    value={viewingExperticia.fechaRespuesta?.toString()}
+                    label="Rango de Fecha"
+                    value={viewingExperticia.fechaRespuesta
+                      ?.toString()
+                      .replace(/^desde\s+/i, "")}
                     isDate
                   />
                 </div>
@@ -591,7 +595,7 @@ export function ExperticiasTable({
                 viewingExperticia.datosAbonado) && (
                 <div className="space-y-4">
                   <h4 className="text-lg font-medium text-gray-900">
-                    Información del Abonado
+                    Información de Abonado
                   </h4>
                   <div className="space-y-4">
                     {viewingExperticia.abonado && (

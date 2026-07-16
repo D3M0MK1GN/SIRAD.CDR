@@ -1,6 +1,6 @@
 // Rutas para gestión de documentos (Word y Excel)
 import type { Express } from "express";
-import { writeFileSync, readFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
+import { writeFileSync, existsSync, mkdirSync, unlinkSync, promises as fsPromises } from "fs";
 import path from "path";
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
@@ -66,7 +66,13 @@ export async function generateWordDocument(requestData: any, storage: any): Prom
     
     // 1. Validar existencia de plantilla y archivo
     const plantilla = await storage.getPlantillaWordByTipoExperticia(tipoExperticia);
-    if (!plantilla || !existsSync(plantilla.archivo)) {
+    if (!plantilla) {
+      return null;
+    }
+
+    try {
+      await fsPromises.access(plantilla.archivo);
+    } catch {
       return null;
     }
     
@@ -100,7 +106,7 @@ export async function generateWordDocument(requestData: any, storage: any): Prom
     };
 
     // 3. Generar documento
-    const content = readFileSync(plantilla.archivo, 'binary');
+    const content = await fsPromises.readFile(plantilla.archivo, 'binary');
     const zip = new PizZip(content);
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
@@ -418,7 +424,9 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
       if (!plantilla) {
         return res.status(404).json({ message: "No hay plantilla disponible para este tipo de experticia" });
       }
-      if (!existsSync(plantilla.archivo)) {
+      try {
+        await fsPromises.access(plantilla.archivo);
+      } catch {
         return res.status(404).json({ message: "Archivo de plantilla no encontrado" });
       }
       
@@ -462,7 +470,7 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
       } else {
         try {
           // Leer el archivo de la plantilla
-          const content = readFileSync(plantilla.archivo, 'binary');
+          const content = await fsPromises.readFile(plantilla.archivo, 'binary');
           const zip = new PizZip(content);
           const doc = new Docxtemplater(zip, {
             paragraphLoop: true,
@@ -478,7 +486,7 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
         } catch (renderError: any) {
           // Si el renderizado falla, registramos el error y usamos la plantilla original
           console.error("Error al renderizar la plantilla con docxtemplater:", renderError);
-          busArhivo = readFileSync(plantilla.archivo); // Usar la plantilla original
+          busArhivo = await fsPromises.readFile(plantilla.archivo); // Usar la plantilla original
         }
         
         // 3. Configurar y enviar la respuesta (consolidado) (Nombre)
@@ -676,7 +684,9 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
       if (!plantilla) {
         return res.status(404).json({ message: "No hay plantilla de experticia disponible para este tipo" });
       }
-      if (!existsSync(plantilla.archivo)) {
+      try {
+        await fsPromises.access(plantilla.archivo);
+      } catch {
         return res.status(404).json({ message: "Archivo de plantilla de experticia no encontrado" });
       }
 
@@ -735,9 +745,19 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
       let archivosExcelTexto = '';
 
       if (tipoExperticia === 'determinar_contacto_frecuente') {
-        const datosAnalisis = Array.isArray(requestData.datosAnalisis)
+        let datosAnalisis = Array.isArray(requestData.datosAnalisis)
           ? requestData.datosAnalisis
           : [];
+
+        // Si no llegan datos crudos en el body (por ejemplo, al regenerar el
+        // documento desde el modal de "ver detalle" de una experticia ya
+        // creada), se reconstruyen a partir de los registros normalizados en
+        // registros_comunicacion en lugar de leerlos de una columna JSONB.
+        if (datosAnalisis.length === 0 && requestData.experticiaid) {
+          datosAnalisis = await storage.getContactoFrecuenteReconstruido(
+            parseInt(requestData.experticiaid)
+          );
+        }
 
         if (datosAnalisis.length > 0) {
           // Modo multi-target: un objeto por cada número analizado
@@ -845,7 +865,7 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
         return res.status(200).json({ message: "Se solicitó la generación de PDF para experticia." });
       } else {
         try {
-          const content = readFileSync(plantilla.archivo, 'binary');
+          const content = await fsPromises.readFile(plantilla.archivo, 'binary');
           const zip = new PizZip(content);
           const doc = new Docxtemplater(zip, {
             paragraphLoop: true,
@@ -857,7 +877,7 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
 
         } catch (renderError: any) {
           console.error("Error al renderizar plantilla de experticia:", renderError);
-          busArchivo = readFileSync(plantilla.archivo);
+          busArchivo = await fsPromises.readFile(plantilla.archivo);
         }
         
         const customFileName = `${plantilla.nombre}-${requestData.numeroDictamen || 'experticia'}.docx`;
@@ -1033,55 +1053,76 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
             peso: "",
           });
 
-          for (const item of listaAnalisis) {
+          // ── Paso 1: resolver TODOS los números analizados en un solo upsert ──
+          // Antes: 1 upsertPersonaTelefono() por número dentro del loop (N viajes
+          // de red para N números). Ahora: se recolectan los números únicos de
+          // listaAnalisis y se resuelven en un único statement con ON CONFLICT.
+          const itemsValidos = listaAnalisis.filter((item: any) => {
             const numero: string = item.numero?.trim() || "";
             const datosCrudos: any[] = item.resultados?.contactos?.datosCrudos ?? [];
-
+            const valido = !!numero && datosCrudos.length > 0;
             console.log(`[EXPERTICIA ${experticia.id}] Item → numero="${numero}" datosCrudos=${datosCrudos.length} fila(s)`);
-
-            if (!numero || datosCrudos.length === 0) {
+            if (!valido) {
               console.log(`[EXPERTICIA ${experticia.id}] Saltando item: numero vacío=${!numero} datosCrudos vacíos=${datosCrudos.length === 0}`);
-              continue;
+            }
+            return valido;
+          });
+
+          if (itemsValidos.length > 0) {
+            const numerosUnicos = Array.from(
+              new Set(itemsValidos.map((item: any) => item.numero.trim()))
+            );
+
+            const telefonosUpsert = await storage.upsertPersonaTelefonosBulk(
+              numerosUnicos.map((numero) => ({
+                numero,
+                tipo: "móvil",
+                activo: true,
+                personaId: null,
+              }))
+            );
+            console.log(`[EXPERTICIA ${experticia.id}] persona_telefonos upsert en lote → ${telefonosUpsert.length} número(s)`);
+
+            const idPorNumero = new Map<string, number>(
+              telefonosUpsert.map((t: { numero: string; id: number }) => [t.numero, t.id])
+            );
+
+            // ── Paso 2: mapear TODAS las filas de TODOS los números juntas ──
+            const todasLasFilas: any[] = [];
+            for (const item of itemsValidos) {
+              const numero: string = item.numero.trim();
+              const datosCrudos: any[] = item.resultados?.contactos?.datosCrudos ?? [];
+              const abonadoAId = idPorNumero.get(numero);
+
+              // Usar el expediente_sujeto_id capturado directamente en el frontend
+              // durante el PASO 1 (al crear persona/caso). Esto evita la re-consulta
+              // por telefono+expediente que era ambigua en caso de duplicados.
+              const expedienteSujetoId: number | null =
+                typeof item.expedienteSujetoId === "number" ? item.expedienteSujetoId : null;
+              console.log(`[EXPERTICIA ${experticia.id}] expediente_sujeto_id=${expedienteSujetoId ?? "null"} para teléfono="${numero}" (capturado en creación)`);
+
+              const filasMapeadas = datosCrudos
+                .map((row: any) => {
+                  const mapped = mapearFila(row, numero, item.archivoNombre || "");
+                  mapped.experticiaId = experticia.id;
+                  mapped.abonadoAId = abonadoAId;
+                  mapped.expedienteSujetoId = expedienteSujetoId;
+                  mapped.usuarioId = req.user.id;
+                  return mapped;
+                })
+                .filter((r: any) => r.abonadoA?.trim());
+
+              todasLasFilas.push(...filasMapeadas);
             }
 
-            // Registrar SOLO el número analizado en persona_telefonos.
-            // Los interlocutores (abonadoB) se guardan como texto en la columna
-            // abonado_b de registros_comunicacion; no se catalogan aquí.
-            // Upsert atómico: crea si no existe, devuelve el existente si ya hay uno.
-            // Imposible crear duplicados gracias al UNIQUE constraint en persona_telefonos.numero.
-            const telAnalizado = await storage.upsertPersonaTelefono({
-              numero,
-              tipo: "móvil",
-              activo: true,
-              personaId: null,
-            });
-            console.log(`[EXPERTICIA ${experticia.id}] persona_telefono upsert → id=${telAnalizado.id} para numero="${numero}"`);
-            const abonadoAId = telAnalizado.id;
-
-            // Usar el expediente_sujeto_id capturado directamente en el frontend
-            // durante el PASO 1 (al crear persona/caso). Esto evita la re-consulta
-            // por telefono+expediente que era ambigua en caso de duplicados.
-            const expedienteSujetoId: number | null =
-              typeof item.expedienteSujetoId === "number" ? item.expedienteSujetoId : null;
-            console.log(`[EXPERTICIA ${experticia.id}] expediente_sujeto_id=${expedienteSujetoId ?? "null"} para teléfono="${numero}" (capturado en creación)`);
-
-            // Mapear cada fila al formato de registros_comunicacion
-            const filasMapeadas = datosCrudos
-              .map((row: any) => {
-                const mapped = mapearFila(row, numero, item.archivoNombre || "");
-                mapped.experticiaId = experticia.id;
-                mapped.abonadoAId = abonadoAId;
-                mapped.expedienteSujetoId = expedienteSujetoId;
-                mapped.usuarioId = req.user.id;
-                return mapped;
-              })
-              .filter((r: any) => r.abonadoA?.trim());
-
-            console.log(`[EXPERTICIA ${experticia.id}] Filas mapeadas válidas: ${filasMapeadas.length}`);
-
-            if (filasMapeadas.length > 0) {
-              await storage.createRegistrosComunicacionBulk(filasMapeadas);
-              console.log(`[EXPERTICIA ${experticia.id}] registros_comunicacion insertados: ${filasMapeadas.length}`);
+            // ── Paso 3: una sola inserción en lote para TODA la experticia ──
+            // Antes: 1 createRegistrosComunicacionBulk() por número (N llamadas,
+            // cada una internamente troceada en chunks de 500). Ahora: 1 sola
+            // llamada con todas las filas, que internamente sigue troceando de
+            // 500 en 500 para no exceder límites del driver.
+            if (todasLasFilas.length > 0) {
+              await storage.createRegistrosComunicacionBulk(todasLasFilas);
+              console.log(`[EXPERTICIA ${experticia.id}] registros_comunicacion insertados: ${todasLasFilas.length}`);
             }
           }
         } catch (normError: any) {

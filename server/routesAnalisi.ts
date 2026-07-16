@@ -10,7 +10,7 @@ import {
   expedientesSujetos,
   registrosComunicacion,
 } from "@shared/schema";
-import { eq, sql, or } from "drizzle-orm";
+import { eq, sql, or, inArray } from "drizzle-orm";
 import {
   insertPersonaCasoSchema,
   insertExpedienteSujetoSchema,
@@ -492,26 +492,200 @@ export function registerAnalisisRoutes(
         }
 
         case "numero": {
-          console.log(`   📋 Consulta: expedientes_sujetos INNER JOIN personas_casos`);
-          console.log(`      WHERE expedientes_sujetos.telefono_caso LIKE '%${valor}%'`);
-          const rowsExp = await db
+          const avanzada = req.query.avanzada === "true";
+
+          if (avanzada && req.user?.rol !== "admin") {
+            return res.status(403).json({ message: "Acceso restringido a administradores" });
+          }
+
+          if (!avanzada) {
+            console.log(`   📋 Consulta: expedientes_sujetos INNER JOIN personas_casos`);
+            console.log(`      WHERE expedientes_sujetos.telefono_caso LIKE '%${valor}%'`);
+            const rowsExp = await db
+              .select(joinSelect)
+              .from(expedientesSujetos)
+              .innerJoin(personasCasos, eq(expedientesSujetos.personaId, personasCasos.nro))
+              .where(sql`${expedientesSujetos.telefonoCaso} LIKE ${"%" + valor + "%"}`);
+            console.log(`   📦 Filas crudas devueltas por DB: ${rowsExp.length}`);
+            resultados = rowsExp.map(mapRow);
+            break;
+          }
+
+          console.log(`   📋 Consulta AVANZADA: registros_comunicacion WHERE abonado_a = '${valor}' OR abonado_b = '${valor}'`);
+          const registrosNumero = await db
+            .select({
+              fecha: registrosComunicacion.fecha,
+            })
+            .from(registrosComunicacion)
+            .where(
+              or(
+                eq(registrosComunicacion.abonadoA, valor as string),
+                eq(registrosComunicacion.abonadoB, valor as string)
+              )
+            );
+          console.log(`   📦 Filas crudas devueltas por DB: ${registrosNumero.length}`);
+
+          if (registrosNumero.length === 0) {
+            resultados = [];
+            res.json({
+              resultados: [],
+              numerosSinExpediente: [],
+              total: 0,
+              tipoBusqueda: tipo,
+              valorBusqueda: valor,
+            });
+            return;
+          }
+
+          let primeraFecha: string | null = null;
+          let ultimaFecha: string | null = null;
+          for (const r of registrosNumero) {
+            if (r.fecha && (!primeraFecha || r.fecha < primeraFecha)) primeraFecha = r.fecha;
+            if (r.fecha && (!ultimaFecha || r.fecha > ultimaFecha)) ultimaFecha = r.fecha;
+          }
+
+          const rowsExpAvanzada = await db
             .select(joinSelect)
             .from(expedientesSujetos)
             .innerJoin(personasCasos, eq(expedientesSujetos.personaId, personasCasos.nro))
             .where(sql`${expedientesSujetos.telefonoCaso} LIKE ${"%" + valor + "%"}`);
-          console.log(`   📦 Filas crudas devueltas por DB: ${rowsExp.length}`);
-          resultados = rowsExp.map(mapRow);
-          break;
+          resultados = rowsExpAvanzada.map(mapRow);
+
+          const numerosSinExpedienteAvanzada =
+            resultados.length === 0
+              ? [
+                  {
+                    numero: valor,
+                    imeiCoincidente: null,
+                    cantidadRegistros: registrosNumero.length,
+                    primeraFecha,
+                    ultimaFecha,
+                  },
+                ]
+              : [];
+
+          console.log(`   ✅ Con expediente: ${resultados.length} | Sin expediente: ${numerosSinExpedienteAvanzada.length}`);
+          console.log(`──────────────────────────────────────────────────────\n`);
+
+          res.json({
+            resultados,
+            numerosSinExpediente: numerosSinExpedienteAvanzada,
+            total: resultados.length + numerosSinExpedienteAvanzada.length,
+            tipoBusqueda: tipo,
+            valorBusqueda: valor,
+          });
+
+          logger.actividad({
+            usuarioId: req.user?.id,
+            username: req.user?.username,
+            accion: "trazabilidad_buscar",
+            modulo: "Trazabilidad",
+            resultado: "exitoso",
+            ip: (req as any).clientIp,
+            detalle: `Búsqueda avanzada por numero: ${valor} — ${resultados.length} con expediente, ${numerosSinExpedienteAvanzada.length} sin expediente`,
+          });
+          return;
+        }
+
+        case "imei": {
+          if (req.user?.rol !== "admin") {
+            return res.status(403).json({ message: "Acceso restringido a administradores" });
+          }
+          console.log(`   📋 Consulta: registros_comunicacion WHERE imei_a = '${valor}' OR imei_b = '${valor}'`);
+          const registrosImei = await db
+            .select({
+              abonadoA: registrosComunicacion.abonadoA,
+              abonadoB: registrosComunicacion.abonadoB,
+              imeiA: registrosComunicacion.imeiA,
+              imeiB: registrosComunicacion.imeiB,
+              fecha: registrosComunicacion.fecha,
+              hora: registrosComunicacion.hora,
+              tipoTransaccion: registrosComunicacion.tipoTransaccion,
+            })
+            .from(registrosComunicacion)
+            .where(
+              or(
+                eq(registrosComunicacion.imeiA, valor as string),
+                eq(registrosComunicacion.imeiB, valor as string)
+              )
+            );
+          console.log(`   📦 Filas crudas devueltas por DB: ${registrosImei.length}`);
+
+          // Deduplicar por número: si coincide imei_a el número es abonado_a, si coincide imei_b es abonado_b
+          const numerosMap = new Map<string, { numero: string; imeiCoincidente: string; cantidadRegistros: number; primeraFecha: string | null; ultimaFecha: string | null }>();
+          for (const r of registrosImei) {
+            const candidatos: string[] = [];
+            if (r.imeiA === valor && r.abonadoA) candidatos.push(r.abonadoA);
+            if (r.imeiB === valor && r.abonadoB) candidatos.push(r.abonadoB);
+            for (const numero of candidatos) {
+              const existente = numerosMap.get(numero);
+              if (existente) {
+                existente.cantidadRegistros += 1;
+                if (r.fecha && (!existente.primeraFecha || r.fecha < existente.primeraFecha)) existente.primeraFecha = r.fecha;
+                if (r.fecha && (!existente.ultimaFecha || r.fecha > existente.ultimaFecha)) existente.ultimaFecha = r.fecha;
+              } else {
+                numerosMap.set(numero, {
+                  numero,
+                  imeiCoincidente: valor as string,
+                  cantidadRegistros: 1,
+                  primeraFecha: r.fecha || null,
+                  ultimaFecha: r.fecha || null,
+                });
+              }
+            }
+          }
+
+          const numerosUnicos = Array.from(numerosMap.keys());
+          console.log(`   🔢 Números únicos encontrados con ese IMEI: ${numerosUnicos.length}`);
+
+          const numerosSinExpediente: any[] = [];
+          if (numerosUnicos.length > 0) {
+            const rowsExp = await db
+              .select(joinSelect)
+              .from(expedientesSujetos)
+              .innerJoin(personasCasos, eq(expedientesSujetos.personaId, personasCasos.nro))
+              .where(inArray(expedientesSujetos.telefonoCaso, numerosUnicos));
+            resultados = rowsExp.map(mapRow);
+
+            const numerosConExpediente = new Set(resultados.map((r) => r.numeroAsociado));
+            for (const numero of numerosUnicos) {
+              if (!numerosConExpediente.has(numero)) {
+                numerosSinExpediente.push(numerosMap.get(numero));
+              }
+            }
+          }
+
+          console.log(`   ✅ Con expediente: ${resultados.length} | Sin expediente: ${numerosSinExpediente.length}`);
+          console.log(`──────────────────────────────────────────────────────\n`);
+
+          res.json({
+            resultados,
+            numerosSinExpediente,
+            total: resultados.length + numerosSinExpediente.length,
+            tipoBusqueda: tipo,
+            valorBusqueda: valor,
+          });
+
+          logger.actividad({
+            usuarioId: req.user?.id,
+            username: req.user?.username,
+            accion: "trazabilidad_buscar",
+            modulo: "Trazabilidad",
+            resultado: "exitoso",
+            ip: (req as any).clientIp,
+            detalle: `Búsqueda por imei: ${valor} — ${resultados.length} con expediente, ${numerosSinExpediente.length} sin expediente`,
+          });
+          return;
         }
 
         case "expediente": {
           console.log(`   📋 Consulta: expedientes_sujetos INNER JOIN personas_casos`);
-          console.log(`      WHERE expediente ILIKE '%${valor}%'`);
+          console.log(`      WHERE expediente = '${valor}'`);
           const rows = await db
             .select(joinSelect)
             .from(expedientesSujetos)
             .innerJoin(personasCasos, eq(expedientesSujetos.personaId, personasCasos.nro))
-            .where(sql`LOWER(${expedientesSujetos.expediente}) LIKE LOWER(${"%" + valor + "%"})`);
+            .where(eq(expedientesSujetos.expediente, valor as string));
           console.log(`   📦 Filas crudas devueltas por DB: ${rows.length}`);
           resultados = rows.map(mapRow);
           break;
@@ -559,79 +733,169 @@ export function registerAnalisisRoutes(
 
   app.get("/api/trazabilidad/coincidencias/:numero", authenticateToken, async (req: any, res) => {
     try {
+      if (req.user?.rol !== "admin") {
+        return res.status(403).json({ message: "Acceso restringido a administradores" });
+      }
       const { numero } = req.params;
-
-      const numerosContactados = new Set<string>();
-      // Solo valores que parecen números telefónicos reales (7+ dígitos)
+      const expedienteParam = (req.query.expediente as string) || "";
       const ES_TELEFONO = /^\d{7,}$/;
 
-      // ── Lado A: todos los registros del sujeto (via FK abonadoAId) ──
-      // Digitel almacena el sujeto en CUALQUIER columna (A o B según entrante/saliente),
-      // por eso se agregan ambos lados descartando el propio número y no-numéricos.
-      const registrosComoA = await storage.getRegistrosComunicacionByAbonado(numero);
-      registrosComoA.forEach((reg) => {
-        const a = (reg.abonadoA || "").trim();
-        const b = (reg.abonadoB || "").trim();
-        if (a !== numero && ES_TELEFONO.test(a)) numerosContactados.add(a);
-        if (b !== numero && ES_TELEFONO.test(b)) numerosContactados.add(b);
-      });
-
-      // ── Bidireccional: registros de otros sujetos que contactaron a este número ──
-      const registrosComoB = await db
-        .select()
-        .from(registrosComunicacion)
-        .where(eq(registrosComunicacion.abonadoB, numero));
-      registrosComoB.forEach((reg) => {
-        const a = (reg.abonadoA || "").trim();
-        if (a !== numero && ES_TELEFONO.test(a)) numerosContactados.add(a);
-      });
-
-      const coincidenciasMap = new Map<string, any>();
-
-      for (const numContactado of Array.from(numerosContactados)) {
+      // Helper: obtiene datos catalogados (persona) de un número, si existe
+      const catalogoCache = new Map<string, any>();
+      const obtenerCatalogo = async (num: string) => {
+        if (catalogoCache.has(num)) return catalogoCache.get(num);
         const telefonos = await db
           .select()
           .from(personaTelefonos)
-          .where(eq(personaTelefonos.numero, numContactado));
-
+          .where(eq(personaTelefonos.numero, num));
+        let info: any = null;
         for (const tel of telefonos) {
           if (!tel.personaId) continue;
           const persona = await storage.getPersonaCasoById(tel.personaId);
           if (!persona) continue;
+          info = {
+            cedula: persona.cedula || null,
+            nombreCompleto: `${persona.nombre || ""} ${persona.apellido || ""}`.trim() || null,
+          };
+          break;
+        }
+        catalogoCache.set(num, info);
+        return info;
+      };
 
-          // ── Obtener expedientes reales desde expedientesSujetos ──
-          const expedientes = await db
-            .select()
-            .from(expedientesSujetos)
-            .where(eq(expedientesSujetos.personaId, persona.nro));
+      // Helper: dado un número, devuelve todos sus registros de comunicación (como A o como B)
+      const obtenerRegistros = async (num: string) => {
+        return db
+          .select()
+          .from(registrosComunicacion)
+          .where(
+            or(
+              eq(registrosComunicacion.abonadoA, num),
+              eq(registrosComunicacion.abonadoB, num)
+            )
+          );
+      };
 
-          const key = `${numContactado}-${persona.nro}`;
-          if (!coincidenciasMap.has(key)) {
-            coincidenciasMap.set(key, {
-              numeroContactado: numContactado,
-              persona: {
-                id: persona.nro,
-                cedula: persona.cedula,
-                nombreCompleto: `${persona.nombre} ${persona.apellido}`,
-                expedientes: expedientes.map((e) => ({
-                  expediente: e.expediente || "—",
-                  delito: e.delito || "—",
-                  fiscalia: e.fiscalia || "—",
-                  nOficio: e.nOficio || "—",
-                })),
-              },
-            });
+      // ── 1) Determinar los números del expediente (todos los sujetos del mismo caso) ──
+      let numerosExpediente: string[] = [];
+      if (expedienteParam) {
+        const sujetosExpediente = await db
+          .select()
+          .from(expedientesSujetos)
+          .where(eq(expedientesSujetos.expediente, expedienteParam));
+        numerosExpediente = Array.from(
+          new Set(
+            sujetosExpediente
+              .map((s) => (s.telefonoCaso || "").trim())
+              .filter((n) => ES_TELEFONO.test(n))
+          )
+        );
+      }
+      if (numerosExpediente.length === 0 && ES_TELEFONO.test(numero)) {
+        numerosExpediente = [numero];
+      }
+
+      // ── 2) Terceros en común: contactos compartidos entre 2+ números del expediente ──
+      const tercerosMap = new Map<
+        string,
+        { numero: string; contactosPorNumero: Map<string, number>; totalRegistros: number }
+      >();
+
+      for (const numExp of numerosExpediente) {
+        const registros = await obtenerRegistros(numExp);
+        for (const r of registros) {
+          const a = (r.abonadoA || "").trim();
+          const b = (r.abonadoB || "").trim();
+          let contacto: string | null = null;
+          if (a === numExp && ES_TELEFONO.test(b)) contacto = b;
+          else if (b === numExp && ES_TELEFONO.test(a)) contacto = a;
+          if (!contacto || contacto === numExp) continue;
+          // No contar como "tercero" a otro número que también pertenece al expediente
+          if (numerosExpediente.includes(contacto)) continue;
+
+          let entry = tercerosMap.get(contacto);
+          if (!entry) {
+            entry = { numero: contacto, contactosPorNumero: new Map(), totalRegistros: 0 };
+            tercerosMap.set(contacto, entry);
           }
+          entry.contactosPorNumero.set(numExp, (entry.contactosPorNumero.get(numExp) || 0) + 1);
+          entry.totalRegistros += 1;
         }
       }
 
-      const coincidencias = Array.from(coincidenciasMap.values());
+      const terceros: any[] = [];
+      for (const entry of Array.from(tercerosMap.values())) {
+        if (entry.contactosPorNumero.size < 2) continue; // solo terceros en común con 2+ números del expediente
+        const persona = await obtenerCatalogo(entry.numero);
+        terceros.push({
+          numero: entry.numero,
+          cedula: persona?.cedula || null,
+          nombreCompleto: persona?.nombreCompleto || null,
+          catalogado: !!persona,
+          numerosExpedienteContactados: Array.from(entry.contactosPorNumero.entries()).map(
+            ([num, cantidad]) => ({ numero: num, cantidadRegistros: cantidad })
+          ),
+          totalRegistros: entry.totalRegistros,
+        });
+      }
+      terceros.sort((x, y) => y.totalRegistros - x.totalRegistros);
+
+      // ── 3) IMEIs compartidos: a nivel global (todo el sistema, sin límite de expediente) ──
+      const imeisDelExpediente = new Set<string>();
+      for (const numExp of numerosExpediente) {
+        const registros = await obtenerRegistros(numExp);
+        for (const r of registros) {
+          const a = (r.abonadoA || "").trim();
+          const b = (r.abonadoB || "").trim();
+          if (a === numExp && r.imeiA) imeisDelExpediente.add(r.imeiA.trim());
+          if (b === numExp && r.imeiB) imeisDelExpediente.add(r.imeiB.trim());
+        }
+      }
+
+      const imeisCompartidos: any[] = [];
+      for (const imei of Array.from(imeisDelExpediente)) {
+        if (!imei) continue;
+        const registrosImei = await db
+          .select()
+          .from(registrosComunicacion)
+          .where(
+            or(
+              eq(registrosComunicacion.imeiA, imei),
+              eq(registrosComunicacion.imeiB, imei)
+            )
+          );
+
+        const numerosUsuarios = new Set<string>();
+        for (const r of registrosImei) {
+          const a = (r.abonadoA || "").trim();
+          const b = (r.abonadoB || "").trim();
+          if (r.imeiA === imei && ES_TELEFONO.test(a)) numerosUsuarios.add(a);
+          if (r.imeiB === imei && ES_TELEFONO.test(b)) numerosUsuarios.add(b);
+        }
+
+        if (numerosUsuarios.size < 2) continue; // solo IMEIs usados por más de un número
+
+        const numerosInfo = [];
+        for (const num of Array.from(numerosUsuarios)) {
+          const persona = await obtenerCatalogo(num);
+          numerosInfo.push({
+            numero: num,
+            cedula: persona?.cedula || null,
+            nombreCompleto: persona?.nombreCompleto || null,
+            catalogado: !!persona,
+            esDelExpediente: numerosExpediente.includes(num),
+          });
+        }
+
+        imeisCompartidos.push({ imei, numeros: numerosInfo });
+      }
 
       res.json({
         numeroAnalizado: numero,
-        totalContactos: numerosContactados.size,
-        coincidenciasEncontradas: coincidencias.length,
-        coincidencias,
+        expediente: expedienteParam || null,
+        numerosExpediente,
+        terceros,
+        imeisCompartidos,
       });
 
       logger.actividad({
@@ -641,7 +905,7 @@ export function registerAnalisisRoutes(
         modulo: "Trazabilidad",
         resultado: "exitoso",
         ip: (req as any).clientIp,
-        detalle: `Análisis de traza: ${numero} — ${coincidencias.length} coincidencia(s)`,
+        detalle: `Cruce de traza: ${numero} (expediente ${expedienteParam || "N/A"}) — ${terceros.length} tercero(s), ${imeisCompartidos.length} IMEI(s) compartido(s)`,
       });
     } catch (error: any) {
       res.status(500).json({ message: "Error al buscar coincidencias" });

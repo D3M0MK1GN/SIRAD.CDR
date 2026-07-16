@@ -322,8 +322,7 @@ export const experticias = pgTable("experticias", {
   horaRespuestaCorreo: text("hora_respuesta_correo"),
   expediente: text("expediente").notNull(),
   estado: estadoExperticiasEnum("estado").default("procesando"),
-  datosSeleccionados: jsonb("datos_seleccionados"), // Almacena filas/columnas seleccionadas en formato JSON (DEPRECATED - usar datosAnalisis y datosSeleccionadosTop10)
-  datosAnalisis: jsonb("datos_analisis"), // Almacena datos_crudos del análisis (Estructura: ABONADO A, ABONADO B, TIPO TRANSACCION, FECHA, HORA, TIME, BTS-CELDA, DIRECCION_A, DIRECCION_B, CORDENADAS_A, CORDENADAS_B, ORIENTACION A, ORIENTACION B, IMEI ABONADO A, IMEI ABONADO B)
+  datosSeleccionados: jsonb("datos_seleccionados"), // Almacena filas/columnas seleccionadas en formato JSON (DEPRECATED - usar datosSeleccionadosTop10)
   datosSeleccionadosTop10: jsonb("datos_seleccionados_top10"), // Almacena filas seleccionadas del TOP 10
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -363,7 +362,6 @@ export const insertExperticiasSchema = createInsertSchema(experticias).omit({
     .max(100, "Expediente muy largo")
     .transform(val => val.trim()),
   // Campos nuevos para análisis de contactos frecuentes
-  datosAnalisis: z.any().optional(), // Guarda datos_crudos del Excel
   datosSeleccionadosTop10: z.any().optional(), // Guarda filas seleccionadas del TOP 10
 });
 
