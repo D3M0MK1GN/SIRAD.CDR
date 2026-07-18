@@ -1,0 +1,10 @@
+
+(thunar:449858): GLib-GIO-CRITICAL **: 11:48:40.477: GFileInfo created without standard::size
+
+(thunar:449858): GLib-GIO-CRITICAL **: 11:48:40.477: file ../../../gio/gfileinfo.c: line 1845 (g_file_info_get_size): should not be reached
+
+(xed:458145): Gtk-CRITICAL **: 12:09:45.573: gtk_distribute_natural_allocation: assertion 'extra_space >= 0' failed
+
+(thunar:449858): GLib-GIO-CRITICAL **: 12:43:15.065: GFileInfo created without standard::size
+
+(thunar:449858): GLib-GIO-CRITICAL **: 12:43:15.065: file ../../../gio/gfileinfo.c: line 1845 (g_file_info_get_size): should not be reached

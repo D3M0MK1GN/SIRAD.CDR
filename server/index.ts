@@ -161,7 +161,7 @@ app.use((req, res, next) => {
     /* */
     // Iniciar el servicio Python API para análisis BTS
     const pythonApiPath = path.join(process.cwd(), 'server', 'model_ai', 'api_restful.py');
-    const pythonExecutable = process.env.PYTHON_EXECUTABLE || 'python3'; // Ruta al ejecutable de Python
+    const pythonExecutable = process.env.PYTHON_EXECUTABLE || 'python'; // Ruta al ejecutable de Python
     const pythonProcess = spawn(pythonExecutable, [pythonApiPath], { 
       cwd: process.cwd(),
       stdio: ['pipe', 'pipe', 'pipe']

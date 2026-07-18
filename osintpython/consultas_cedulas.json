@@ -4345,5 +4345,27 @@
             }
         },
         "success": true
+    },
+    {
+        "timestamp": "2026-07-16T13:59:04.741460",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "26121243",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=9314&token=15f625d3f55b6749c7a54c54b6235c98&nacionalidad=V&cedula=26121243",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 26121243,
+                "fecha_nac": "1994-01-20",
+                "rif": "V261212435",
+                "primer_apellido": "DELGADO",
+                "segundo_apellido": "RODRIGUEZ",
+                "primer_nombre": "JOSE",
+                "segundo_nombre": "GREGORIO",
+                "request_date": "2026-07-16T17:59:04.692Z"
+            }
+        },
+        "success": true
     }
 ]

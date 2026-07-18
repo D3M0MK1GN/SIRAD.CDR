@@ -1,9 +1,36 @@
+import re
 import pandas as pd
 from tabulate import tabulate
 from collections import defaultdict
 import numpy as np
 
 class Exper_Frecuentes:
+
+    def _formatear_fecha_activacion(self, valor):
+        """Convierte 'aaaa-mm-dd' → 'dd/mm/aaaa'. Si ya está en otro formato o vacío, lo deja igual."""
+        if not valor or str(valor).strip().lower() in ('nan', 'none', ''):
+            return ''
+        v = str(valor).strip()
+        if '-' in v:
+            partes = v.split('-')
+            if len(partes) == 3:
+                return f"{partes[2]}/{partes[1]}/{partes[0]}"
+        return v
+
+    def _detectar_formato_movistar(self, hojas):
+        """
+        Detecta el formato del archivo Movistar inspeccionando los nombres de hojas.
+        - Formato antiguo (SAR_SCXM): tiene hoja 'VOZ', skiprows=14
+        - Formato nuevo   (TMVE):     tiene hoja 'Reporte de Voz', skiprows=15
+        Devuelve (nombre_real_hoja_voz, skiprows)
+        """
+        hojas_upper = {h.upper(): h for h in hojas}
+        if 'VOZ' in hojas_upper:
+            return hojas_upper['VOZ'], 14
+        elif 'REPORTE DE VOZ' in hojas_upper:
+            return hojas_upper['REPORTE DE VOZ'], 15
+        else:
+            return hojas[0], 14  # fallback seguro
 
     def buscar_por_abonado_b(self, archivo_excel: str, numero_buscar: str,
                              operador: str):
@@ -61,20 +88,23 @@ class Exper_Frecuentes:
         elif 'movistar' in operador.lower():
             print(f"[DEBUG BTS] Procesando como Movistar")
 
-            if 'VOZ' not in hojas:
+            hoja_voz, salto = self._detectar_formato_movistar(hojas)
+            print(f"[DEBUG BTS] Formato detectado — hoja='{hoja_voz}', salto={salto}")
+
+            if hoja_voz not in hojas:
                 print(
-                    f"[DEBUG BTS ERROR] La hoja 'VOZ' no existe en el archivo. Hojas disponibles: {hojas}"
+                    f"[DEBUG BTS ERROR] La hoja '{hoja_voz}' no existe en el archivo. Hojas disponibles: {hojas}"
                 )
                 return None
 
-            print(f"[DEBUG BTS] Leyendo hoja VOZ")
-            datos_voz = pd.read_excel(archivo_excel, sheet_name='VOZ')
+            print(f"[DEBUG BTS] Leyendo hoja '{hoja_voz}'")
+            datos_voz = pd.read_excel(archivo_excel, sheet_name=hoja_voz)
             print(
                 f"[DEBUG BTS] Datos VOZ leídos: {datos_voz.shape} filas/columnas"
             )
-            datos_voz_despues_fila_15 = datos_voz.iloc[14:]
+            datos_voz_despues_fila_15 = datos_voz.iloc[salto:]
             print(
-                f"[DEBUG BTS] Después de fila 14: {datos_voz_despues_fila_15.shape} filas/columnas"
+                f"[DEBUG BTS] Después de fila {salto}: {datos_voz_despues_fila_15.shape} filas/columnas"
             )
             datos_filtrados = datos_voz_despues_fila_15.iloc[:, [
                 0, 1, 2, 3, 4, 9, 10, 11
@@ -176,6 +206,10 @@ class Exper_Frecuentes:
             # Mapa case-insensitive: nombre en mayúsculas -> nombre real de la hoja
             hojas_upper = {h.upper(): h for h in hojas}
 
+            # Detectar formato Movistar antes de construir CONFIG
+            hoja_voz_mov, salto_mov = self._detectar_formato_movistar(hojas)
+            hoja_sms_mov = 'SMS' if 'SMS' in hojas else None
+
             # Configuración (se mantiene similar, pero añadimos mapeo de columnas)
             CONFIG = {
                     'DIGITEL': {
@@ -191,9 +225,9 @@ class Exper_Frecuentes:
                         }
                     },
                     'MOVISTAR': {
-                        'hoja': 'VOZ' if 'VOZ' in hojas else hojas[0],
-                        'hoja_sms': 'SMS' if 'SMS' in hojas else None,
-                        'salto': 14,
+                        'hoja': hoja_voz_mov,
+                        'hoja_sms': hoja_sms_mov,
+                        'salto': salto_mov,
                         'A': 'ABONADO_A', 'B': 'ABONADO_B',
                         'mapeo': {
                             'ABONADO A': 'ABONADO_A',
@@ -554,56 +588,147 @@ class Exper_Frecuentes:
 
     def extraer_datos_filiatorios_movistar(self, archivo_excel: str) -> dict:
         """
-        Extrae datos filiatorios del titular de la línea desde la hoja 'DATOS FILIATORIOS'
-        del archivo Excel Movistar. La hoja tiene estructura clave-valor por fila.
+        Extrae datos filiatorios del titular de la línea desde la hoja 'DATOS FILIATORIOS'.
+        Soporta dos formatos:
+        - SAR_SCXM (antiguo): diseño vertical, Col A = campo, Col B = valor por fila.
+        - TMVE (nuevo):       diseño horizontal con celdas combinadas donde cada celda
+                              contiene "LABEL:\\nVALOR", más tabla de servicios desde fila 10.
+        El dict de salida es idéntico en ambos casos.
         """
         try:
             xls = pd.ExcelFile(archivo_excel)
-            hojas_upper = {h.upper(): h for h in xls.sheet_names}
+            hojas = xls.sheet_names
+            hojas_upper = {h.upper(): h for h in hojas}
+
             hoja_real = hojas_upper.get('DATOS FILIATORIOS')
             if hoja_real is None:
                 print("[FILIATORIOS] Hoja 'DATOS FILIATORIOS' no encontrada.")
                 return {}
 
+            _, _ = self._detectar_formato_movistar(hojas)  # solo para log
+            fmt_mov, _ = self._detectar_formato_movistar(hojas)
+            print(f"[FILIATORIOS] Formato detectado: {fmt_mov}")
+
             df = pd.read_excel(xls, sheet_name=hoja_real, header=None)
-            datos = {}
-            for _, row in df.iterrows():
-                if len(row) >= 2 and pd.notna(row.iloc[0]):
-                    clave = str(row.iloc[0]).strip()
-                    valor = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) else ""
-                    datos[clave] = valor
 
-            ci_rif = datos.get('Ci Rif', '')
-            cliente_titular = datos.get('Cliente Titular', '')
-            direccion = datos.get('Direccion', '')
-            region = datos.get('Region', '')
-            fecha_nacimiento = datos.get('Fecha Nacimiento', '')
-            correo = datos.get('Correo', '')
-            status_linea = datos.get('Status Linea', '')
+            # ── FORMATO ANTIGUO (SAR_SCXM): diseño vertical clave/valor ──────────
+            if fmt_mov == 'SAR_SCXM':
+                datos = {}
+                for _, row in df.iterrows():
+                    if len(row) >= 2 and pd.notna(row.iloc[0]):
+                        clave = str(row.iloc[0]).strip()
+                        valor = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) else ""
+                        datos[clave] = valor
 
-            # Fecha Inicio → formato DD/MM/AAAA
-            fecha_inicio_raw = datos.get('Fecha Inicio', '')
+                ci_rif = datos.get('Ci Rif', '')
+                cliente_titular = datos.get('Cliente Titular', '')
+                direccion = datos.get('Direccion', '')
+                region = datos.get('Region', '')
+                fecha_nacimiento = datos.get('Fecha Nacimiento', '')
+                correo = datos.get('Correo', '')
+                status_linea = datos.get('Status Linea', '')
+
+                fecha_inicio_raw = datos.get('Fecha Inicio', '')
+                fecha_activacion = ''
+                if fecha_inicio_raw:
+                    partes = str(fecha_inicio_raw).strip().split('-')
+                    if len(partes) == 3:
+                        fecha_activacion = f"{partes[2]}/{partes[1]}/{partes[0]}"
+                    else:
+                        fecha_activacion = fecha_inicio_raw
+
+                direccion_completa = ", ".join(filter(None, [region, direccion]))
+
+                result = {
+                    'cedula': ci_rif,
+                    'nombre': cliente_titular,
+                    'fechaNacimiento': fecha_nacimiento,
+                    'correo': correo,
+                    'direccion': direccion_completa,
+                    'statusLinea': status_linea,
+                    'fechaActivacion': fecha_activacion,
+                }
+                print(f"[FILIATORIOS SAR_SCXM] Datos extraídos: {result}")
+                return result
+
+            # ── FORMATO NUEVO (TMVE): diseño horizontal con celdas "LABEL:\\nVALOR" ─
+            def extraer_valor_celda(celda):
+                """Divide una celda del tipo 'LABEL:\\nVALOR' y devuelve el valor."""
+                if pd.isna(celda):
+                    return ''
+                partes = str(celda).split('\n', 1)
+                return partes[1].strip() if len(partes) > 1 else ''
+
+            def extraer_label(celda):
+                """Extrae la etiqueta de una celda 'LABEL:\\nVALOR'."""
+                if pd.isna(celda):
+                    return ''
+                return str(celda).split('\n', 1)[0].strip().rstrip(':').strip().upper()
+
+            # Recorrer las filas de cabecera del titular hasta encontrar
+            # la sección de tablas inferiores ('SERVICIOS ASOCIADOS' o 'CADENA DE TITULARIDAD'),
+            # para evitar que los encabezados de esas tablas sobreescriban los datos del titular.
+            datos_titular = {}
+            for idx in range(len(df)):
+                row = df.iloc[idx]
+                primera_celda = str(row.iloc[0]).strip().upper() if pd.notna(row.iloc[0]) else ''
+                if primera_celda in ('SERVICIOS ASOCIADOS', 'CADENA DE TITULARIDAD'):
+                    break
+                for celda in row:
+                    label = extraer_label(celda)
+                    valor = extraer_valor_celda(celda)
+                    if label:
+                        datos_titular[label] = valor
+
+            nombre        = datos_titular.get('APELLIDOS Y NOMBRES / RAZÓN SOCIAL', '')
+            cedula        = datos_titular.get('DOCUMENTO', '')
+            fecha_nac     = datos_titular.get('FECHA DE NACIMIENTO', '')
+            correo        = datos_titular.get('CORREO ELECTRÓNICO', '')
+            direccion     = datos_titular.get('DIRECCIÓN', '')
+            fecha_cliente = datos_titular.get('CLIENTE DESDE', '')
+
+            # Tabla de servicios asociados: fila 10 = headers (índice 10), fila 11+ = datos
+            status_linea    = ''
             fecha_activacion = ''
-            if fecha_inicio_raw:
-                partes = str(fecha_inicio_raw).strip().split('-')
-                if len(partes) == 3:
-                    fecha_activacion = f"{partes[2]}/{partes[1]}/{partes[0]}"
-                else:
-                    fecha_activacion = fecha_inicio_raw
+            try:
+                df_servicios = pd.read_excel(xls, sheet_name=hoja_real, header=None, skiprows=10)
+                df_servicios.columns = [str(c).strip().upper() for c in df_servicios.iloc[0]]
+                df_servicios = df_servicios.iloc[1:].reset_index(drop=True)
 
-            direccion_completa = ", ".join(filter(None, [region, direccion]))
+                col_status = next((c for c in df_servicios.columns if 'STATUS' in c and 'CÓD' not in c and 'COD' not in c), None)
+                col_fact   = next((c for c in df_servicios.columns if 'ACTIVACI' in c), None)
+
+                if not df_servicios.empty:
+                    if col_status:
+                        status_linea = str(df_servicios[col_status].iloc[0]).strip()
+                        if status_linea in ('nan', 'NaN', 'None'):
+                            status_linea = ''
+                    if col_fact:
+                        fecha_activacion = str(df_servicios[col_fact].iloc[0]).strip()
+                        if fecha_activacion in ('nan', 'NaN', 'None'):
+                            fecha_activacion = ''
+            except Exception as e_srv:
+                print(f"[FILIATORIOS TMVE] Error leyendo tabla servicios: {e_srv}")
+
+            # Si CLIENTE DESDE tiene fecha y no hay F. ACTIVACIÓN, usarla como fallback
+            if not fecha_activacion and fecha_cliente:
+                fecha_activacion = fecha_cliente
+
+            # Normalizar a dd/mm/aaaa para mantener consistencia con formato SAR_SCXM
+            fecha_activacion = self._formatear_fecha_activacion(fecha_activacion)
 
             result = {
-                'cedula': ci_rif,
-                'nombre': cliente_titular,
-                'fechaNacimiento': fecha_nacimiento,
+                'cedula': cedula,
+                'nombre': nombre,
+                'fechaNacimiento': fecha_nac,
                 'correo': correo,
-                'direccion': direccion_completa,
+                'direccion': direccion,
                 'statusLinea': status_linea,
                 'fechaActivacion': fecha_activacion,
             }
-            print(f"[FILIATORIOS] Datos extraídos: {result}")
+            print(f"[FILIATORIOS TMVE] Datos extraídos: {result}")
             return result
+
         except Exception as e:
             print(f"[FILIATORIOS ERROR] {str(e)}")
             return {}
