@@ -464,6 +464,8 @@ class RegistroItem(BaseModel):
     direccionB: Optional[str] = None
     coordenadasA: Optional[str] = None
     coordenadasB: Optional[str] = None
+    orientacionA: Optional[str] = None
+    orientacionB: Optional[str] = None
 
 class AnalizarRegistrosDBRequest(BaseModel):
     numero: str

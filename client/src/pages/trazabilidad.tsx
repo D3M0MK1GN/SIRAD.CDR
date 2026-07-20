@@ -86,7 +86,11 @@ export default function Trazabilidad() {
   const [personaData, setPersonaData] = useState<any>(null);
   const [registrosData, setRegistrosData] = useState<any[]>([]);
   const [coincidenciasData, setCoincidenciasData] = useState<any>(null);
+  const [cruceNumeroActivo, setCruceNumeroActivo] = useState<string>("");
+  const [cruceExpedienteInput, setCruceExpedienteInput] = useState<string>("");
+  const [numerosActivos, setNumerosActivos] = useState<Set<string>>(new Set());
   const [terceroFiltro, setTerceroFiltro] = useState("");
+  const [terceroFiltroConexiones, setTerceroFiltroConexiones] = useState<string>("todos");
   const [terceroPagina, setTerceroPagina] = useState(1);
   const [terceroPorPagina, setTerceroPorPagina] = useState<string>("10");
   const [analisisData, setAnalisisData] = useState<any>(null);
@@ -405,50 +409,48 @@ export default function Trazabilidad() {
     }
   };
 
-  const handleCoincidencias = async (numero: string, expediente?: string) => {
-    // Limpiar datos anteriores antes de abrir el modal
+  const fetchCoincidencias = async (numero: string, expedienteStr: string) => {
     setCoincidenciasData(null);
+    setNumerosActivos(new Set());
     setTerceroFiltro("");
+    setTerceroFiltroConexiones("todos");
     setTerceroPagina(1);
     setTerceroPorPagina("10");
     setLoadingModal(true);
-    setShowCoincidenciasModal(true);
-
     try {
-      const query = expediente ? `?expediente=${encodeURIComponent(expediente)}` : "";
+      const query = expedienteStr ? `?expediente=${encodeURIComponent(expedienteStr)}` : "";
       const response = await fetch(
         `/api/trazabilidad/coincidencias/${encodeURIComponent(numero)}${query}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
-
       if (response.ok) {
         const data = await response.json();
         setCoincidenciasData(data);
+        // Inicializar todos los números base como activos
+        setNumerosActivos(new Set((data.numerosExpediente || []) as string[]));
       } else {
-        // En caso de error, cerrar el modal
         setShowCoincidenciasModal(false);
-        toast({
-          title: "Error",
-          description: "No se pudieron obtener las coincidencias",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: "No se pudieron obtener las coincidencias", variant: "destructive" });
       }
     } catch (error) {
       console.error("Error al obtener coincidencias:", error);
-      // En caso de error, cerrar el modal
       setShowCoincidenciasModal(false);
-      toast({
-        title: "Error",
-        description: "No se pudieron obtener las coincidencias",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "No se pudieron obtener las coincidencias", variant: "destructive" });
     } finally {
       setLoadingModal(false);
     }
+  };
+
+  const handleCoincidencias = async (numero: string, expediente?: string) => {
+    const expInicial = expediente || "";
+    setCruceNumeroActivo(numero);
+    setCruceExpedienteInput(expInicial);
+    setShowCoincidenciasModal(true);
+    await fetchCoincidencias(numero, expInicial);
+  };
+
+  const handleReejecutarCruce = async () => {
+    await fetchCoincidencias(cruceNumeroActivo, cruceExpedienteInput.trim());
   };
 
   const handleEdit = async (personaId: number) => {
@@ -1554,6 +1556,71 @@ export default function Trazabilidad() {
             </DialogTitle>
           </DialogHeader>
 
+          {/* Panel de control de cruce — siempre visible */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
+            <p className="text-xs font-semibold text-gray-700">Expediente(s) para el cruce</p>
+            <div className="flex gap-2 items-center">
+              <Input
+                value={cruceExpedienteInput}
+                onChange={(e) => setCruceExpedienteInput(e.target.value)}
+                placeholder="Ej: K-25-0271-0007  ó  K-25-0271-0007,K-26-0263-00091  ó  all"
+                className="h-8 text-xs font-mono flex-1"
+              />
+              <Button
+                size="sm"
+                className="h-8 text-xs whitespace-nowrap"
+                onClick={handleReejecutarCruce}
+                disabled={loadingModal}
+              >
+                {loadingModal ? "Cargando..." : "Ejecutar cruce"}
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Un expediente, varios separados por coma sin espacio, o <span className="font-mono font-semibold">all</span> para cruzar contra toda la información del sistema.
+            </p>
+
+            {/* Chips de números base — activos/inactivos */}
+            {coincidenciasData?.numerosExpedienteInfo && coincidenciasData.numerosExpedienteInfo.length > 0 && (
+              <div className="pt-1 space-y-1">
+                <p className="text-xs font-semibold text-gray-600">Números en el cruce <span className="font-normal text-gray-400">(toca para activar/desactivar)</span></p>
+                <div className="flex flex-wrap gap-2">
+                  {coincidenciasData.numerosExpedienteInfo.map((info: any) => {
+                    const activo = numerosActivos.has(info.numero);
+                    const etiqueta = info.catalogado && info.nombreCompleto
+                      ? `${info.nombreCompleto} (${info.numero})`
+                      : info.numero;
+                    return (
+                      <button
+                        key={info.numero}
+                        type="button"
+                        onClick={() => {
+                          setNumerosActivos((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(info.numero)) {
+                              next.delete(info.numero);
+                            } else {
+                              next.add(info.numero);
+                            }
+                            return next;
+                          });
+                          setTerceroPagina(1);
+                        }}
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border transition-colors ${
+                          activo
+                            ? "bg-amber-100 border-amber-400 text-amber-900"
+                            : "bg-gray-100 border-gray-300 text-gray-400 line-through"
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${activo ? "bg-amber-500" : "bg-gray-300"}`} />
+                        {etiqueta}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
           {loadingModal ? (
             <div className="py-8 text-center text-gray-500">Cargando...</div>
           ) : coincidenciasData ? (
@@ -1561,9 +1628,21 @@ export default function Trazabilidad() {
               {/* Resumen */}
               <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg flex flex-wrap gap-4 text-sm text-amber-900">
                 <span><strong>Número analizado:</strong> {coincidenciasData.numeroAnalizado}</span>
-                <span><strong>Expediente:</strong> {coincidenciasData.expediente || "N/A"}</span>
-                <span><strong>Números del expediente:</strong> {coincidenciasData.numerosExpediente?.length || 0}</span>
-                <span><strong>Terceros en común:</strong> {coincidenciasData.terceros?.length || 0}</span>
+                <span><strong>Modo de cruce:</strong> {(() => {
+                  const exp = coincidenciasData.expediente;
+                  if (exp === "all") return "Total (todo el sistema)";
+                  if (!exp) return "N/A";
+                  const lista = exp.split(",").map((e: string) => e.trim()).filter(Boolean);
+                  if (lista.length === 1) return lista[0];
+                  if (lista.length === 2) return `${lista[0]} // ${lista[1]}`;
+                  return `${lista[0]} // (${String(lista.length - 1).padStart(2, "0")})`;
+                })()}</span>
+                <span><strong>Expediente Personas:</strong> {numerosActivos.size}</span>
+                <span><strong>Terceros en común:</strong> {
+                  (coincidenciasData.terceros || []).filter((t: any) =>
+                    t.numerosExpedienteContactados.filter((nc: any) => numerosActivos.has(nc.numero)).length >= 2
+                  ).length
+                }</span>
                 <span><strong>IMEIs compartidos:</strong> {coincidenciasData.imeisCompartidos?.length || 0}</span>
               </div>
 
@@ -1586,6 +1665,27 @@ export default function Trazabilidad() {
                       }}
                       className="max-w-xs h-8 text-xs"
                     />
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs text-gray-600 whitespace-nowrap">Conexiones:</Label>
+                      <Select
+                        value={terceroFiltroConexiones}
+                        onValueChange={(value) => {
+                          setTerceroFiltroConexiones(value);
+                          setTerceroPagina(1);
+                        }}
+                      >
+                        <SelectTrigger data-testid="select-tercero-conexiones" className="h-8 w-36 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="todos">Todas</SelectItem>
+                          <SelectItem value="2">2 conexiones</SelectItem>
+                          <SelectItem value="3">3 conexiones</SelectItem>
+                          <SelectItem value="4">4 conexiones</SelectItem>
+                          <SelectItem value="5">5 o más conexiones</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="flex items-center gap-2">
                       <Label className="text-xs text-gray-600 whitespace-nowrap">Por página:</Label>
                       <Select
@@ -1611,9 +1711,31 @@ export default function Trazabilidad() {
                 {(() => {
                   const todosTerceros = coincidenciasData.terceros || [];
                   const filtro = terceroFiltro.trim();
-                  const tercerosFiltrados = filtro
-                    ? todosTerceros.filter((t: any) => t.numero.includes(filtro))
-                    : todosTerceros;
+                  const conexionesFiltro = terceroFiltroConexiones;
+                  const tercerosFiltrados = todosTerceros
+                    // Primero filtrar por números activos: el tercero debe tener contacto con 2+ números activos
+                    .map((t: any) => ({
+                      ...t,
+                      numerosExpedienteContactados: t.numerosExpedienteContactados.filter(
+                        (nc: any) => numerosActivos.has(nc.numero)
+                      ),
+                    }))
+                    .filter((t: any) => t.numerosExpedienteContactados.length >= 2)
+                    .filter((t: any) => {
+                      const cumpleTexto = filtro ? t.numero.includes(filtro) : true;
+                      const conexiones = t.numerosExpedienteContactados?.length || 0;
+                      let cumpleConexiones = true;
+                      if (conexionesFiltro === "2") {
+                        cumpleConexiones = conexiones === 2;
+                      } else if (conexionesFiltro === "3") {
+                        cumpleConexiones = conexiones === 3;
+                      } else if (conexionesFiltro === "4") {
+                        cumpleConexiones = conexiones === 4;
+                      } else if (conexionesFiltro === "5") {
+                        cumpleConexiones = conexiones >= 5;
+                      }
+                      return cumpleTexto && cumpleConexiones;
+                    });
 
                   const porPagina =
                     terceroPorPagina === "todos" ? tercerosFiltrados.length || 1 : parseInt(terceroPorPagina, 10);
@@ -1647,7 +1769,7 @@ export default function Trazabilidad() {
                               <TableHead className="text-xs font-bold text-gray-700">Número Tercero</TableHead>
                               <TableHead className="text-xs font-bold text-gray-700">Cédula</TableHead>
                               <TableHead className="text-xs font-bold text-gray-700">Nombre Completo</TableHead>
-                              <TableHead className="text-xs font-bold text-gray-700">Números del expediente contactados</TableHead>
+                              <TableHead className="text-xs font-bold text-gray-700">Número de Terceros</TableHead>
                               <TableHead className="text-xs font-bold text-gray-700">Total registros</TableHead>
                               <TableHead className="text-xs font-bold text-gray-700">Estatus</TableHead>
                             </TableRow>

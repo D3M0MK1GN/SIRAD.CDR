@@ -776,21 +776,38 @@ export function registerAnalisisRoutes(
           );
       };
 
-      // ── 1) Determinar los números del expediente (todos los sujetos del mismo caso) ──
+      // ── 1) Determinar los números base para el cruce ──
       let numerosExpediente: string[] = [];
-      if (expedienteParam) {
-        const sujetosExpediente = await db
-          .select()
-          .from(expedientesSujetos)
-          .where(eq(expedientesSujetos.expediente, expedienteParam));
-        numerosExpediente = Array.from(
-          new Set(
-            sujetosExpediente
-              .map((s) => (s.telefonoCaso || "").trim())
-              .filter((n) => ES_TELEFONO.test(n))
-          )
-        );
+
+      if (expedienteParam === "all") {
+        // Cruce total: todos los números únicos de la tabla registros_comunicacion
+        const rowsA = await db
+          .selectDistinct({ num: registrosComunicacion.abonadoA })
+          .from(registrosComunicacion);
+        const rowsB = await db
+          .selectDistinct({ num: registrosComunicacion.abonadoB })
+          .from(registrosComunicacion);
+        const todosNums = new Set<string>();
+        for (const r of rowsA) if (r.num && ES_TELEFONO.test(r.num.trim())) todosNums.add(r.num.trim());
+        for (const r of rowsB) if (r.num && ES_TELEFONO.test(r.num.trim())) todosNums.add(r.num.trim());
+        numerosExpediente = Array.from(todosNums);
+      } else if (expedienteParam) {
+        // Uno o varios expedientes separados por coma sin espacio
+        const listaExpedientes = expedienteParam.split(",").map((e) => e.trim()).filter(Boolean);
+        const numerosSet = new Set<string>();
+        for (const exp of listaExpedientes) {
+          const sujetosExpediente = await db
+            .select()
+            .from(expedientesSujetos)
+            .where(eq(expedientesSujetos.expediente, exp));
+          for (const s of sujetosExpediente) {
+            const tel = (s.telefonoCaso || "").trim();
+            if (ES_TELEFONO.test(tel)) numerosSet.add(tel);
+          }
+        }
+        numerosExpediente = Array.from(numerosSet);
       }
+
       if (numerosExpediente.length === 0 && ES_TELEFONO.test(numero)) {
         numerosExpediente = [numero];
       }
@@ -890,10 +907,23 @@ export function registerAnalisisRoutes(
         imeisCompartidos.push({ imei, numeros: numerosInfo });
       }
 
+      // Enriquecer numerosExpediente con datos de catálogo
+      const numerosExpedienteInfo: any[] = [];
+      for (const num of numerosExpediente) {
+        const persona = await obtenerCatalogo(num);
+        numerosExpedienteInfo.push({
+          numero: num,
+          cedula: persona?.cedula || null,
+          nombreCompleto: persona?.nombreCompleto || null,
+          catalogado: !!persona,
+        });
+      }
+
       res.json({
         numeroAnalizado: numero,
         expediente: expedienteParam || null,
         numerosExpediente,
+        numerosExpedienteInfo,
         terceros,
         imeisCompartidos,
       });
