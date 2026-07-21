@@ -4367,5 +4367,231 @@
             }
         },
         "success": true
+    },
+    {
+        "timestamp": "2026-07-20T11:57:10.961947",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "14760057",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=9314&token=15f625d3f55b6749c7a54c54b6235c98&nacionalidad=V&cedula=14760057",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 14760057,
+                "fecha_nac": "1979-09-13",
+                "rif": "V147600573",
+                "cne": {
+                    "estado": "LARA",
+                    "municipio": "IRIBARREN",
+                    "parroquia": "UNION",
+                    "centro_electoral": "CASA COMUNAL MANUEL PRADO"
+                },
+                "primer_apellido": "ROJAS",
+                "primer_nombre": "YENNY",
+                "segundo_nombre": "JOSEFINA",
+                "request_date": "2026-07-20T15:57:10.911Z"
+            }
+        },
+        "success": true
+    },
+    {
+        "timestamp": "2026-07-20T11:59:32.932456",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "23566392",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=9314&token=15f625d3f55b6749c7a54c54b6235c98&nacionalidad=V&cedula=23566392",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 23566392,
+                "fecha_nac": "1994-10-07",
+                "rif": "V235663925",
+                "primer_apellido": "ROJAS",
+                "segundo_apellido": "ROJAS",
+                "primer_nombre": "DAYERLIN",
+                "segundo_nombre": "ANDREINA",
+                "request_date": "2026-07-20T15:59:32.878Z"
+            }
+        },
+        "success": true
+    },
+    {
+        "timestamp": "2026-07-20T12:00:23.200183",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "11645724",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=9314&token=15f625d3f55b6749c7a54c54b6235c98&nacionalidad=V&cedula=11645724",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 11645724,
+                "fecha_nac": "1956-11-22",
+                "rif": "V116457241",
+                "cne": {
+                    "estado": "YARACUY",
+                    "municipio": "BOLIVAR",
+                    "parroquia": "AROA",
+                    "centro_electoral": "ESCUELA BASICA NACIONAL GUAYABONAL"
+                },
+                "primer_apellido": "PERDOMO",
+                "segundo_apellido": "PARADAS",
+                "primer_nombre": "HIPOLITO",
+                "request_date": "2026-07-20T16:00:23.147Z"
+            }
+        },
+        "success": true
+    },
+    {
+        "timestamp": "2026-07-20T12:09:00.202619",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "13842345",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=9314&token=15f625d3f55b6749c7a54c54b6235c98&nacionalidad=V&cedula=13842345",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 13842345,
+                "fecha_nac": "1976-06-08",
+                "rif": "V138423456",
+                "primer_apellido": "HERNANDEZ",
+                "segundo_apellido": "OLIVARES",
+                "primer_nombre": "CESAR",
+                "segundo_nombre": "AUGUSTO",
+                "request_date": "2026-07-20T16:09:00.153Z"
+            }
+        },
+        "success": true
+    },
+    {
+        "timestamp": "2026-07-20T12:33:12.480454",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "25149828",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=9314&token=15f625d3f55b6749c7a54c54b6235c98&nacionalidad=V&cedula=25149828",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 25149828,
+                "fecha_nac": "1995-10-27",
+                "rif": "V251498284",
+                "primer_apellido": "PEÑA",
+                "segundo_apellido": "MERCADO",
+                "primer_nombre": "OSCAR",
+                "segundo_nombre": "ENRIQUE",
+                "request_date": "2026-07-20T16:33:12.435Z"
+            }
+        },
+        "success": true
+    },
+    {
+        "timestamp": "2026-07-20T13:52:27.782919",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "14627576",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=9314&token=15f625d3f55b6749c7a54c54b6235c98&nacionalidad=V&cedula=14627576",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 14627576,
+                "fecha_nac": "1980-10-05",
+                "rif": "V146275768",
+                "cne": {
+                    "estado": "ARAGUA",
+                    "municipio": "SANTIAGO MARI?O",
+                    "parroquia": "TURMERO",
+                    "centro_electoral": "CICLO COMBINADO RAMON BASTIDAS"
+                },
+                "primer_apellido": "HERNANDEZ",
+                "segundo_apellido": "GODOY",
+                "primer_nombre": "ANA",
+                "segundo_nombre": "MARIA",
+                "request_date": "2026-07-20T17:52:27.700Z"
+            }
+        },
+        "success": true
+    },
+    {
+        "timestamp": "2026-07-20T13:59:28.978667",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "14978676",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=9314&token=15f625d3f55b6749c7a54c54b6235c98&nacionalidad=V&cedula=14978676",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 14978676,
+                "fecha_nac": "1978-07-04",
+                "rif": "V149786763",
+                "cne": {
+                    "estado": "LARA",
+                    "municipio": "CRESPO",
+                    "parroquia": "FREITEZ",
+                    "centro_electoral": "ESCUELA BASICA LICUA"
+                },
+                "primer_apellido": "SIVIRA",
+                "segundo_apellido": "SEQUERA",
+                "primer_nombre": "TANIA",
+                "segundo_nombre": "CAROLINA",
+                "request_date": "2026-07-20T17:59:28.875Z"
+            }
+        },
+        "success": true
+    },
+    {
+        "timestamp": "2026-07-20T14:10:47.028380",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "12027235",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=9314&token=15f625d3f55b6749c7a54c54b6235c98&nacionalidad=V&cedula=12027235",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 12027235,
+                "fecha_nac": "1974-11-10",
+                "rif": "V120272353",
+                "cne": {
+                    "estado": "LARA",
+                    "municipio": "URDANETA",
+                    "parroquia": "MOROTURO",
+                    "centro_electoral": "ESCUELA BASICA NAC IOMNALMOROTURO"
+                },
+                "primer_apellido": "LISCANO",
+                "segundo_apellido": "HERNANDEZ",
+                "primer_nombre": "KELMIR",
+                "segundo_nombre": "JOSE",
+                "request_date": "2026-07-20T18:10:46.968Z"
+            }
+        },
+        "success": true
+    },
+    {
+        "timestamp": "2026-07-20T14:14:41.790886",
+        "nacionalidad_consultada": "V",
+        "cedula_consultada": "8511780",
+        "url_completa": "http://api.cedula.com.ve/api/v1?app_id=9314&token=15f625d3f55b6749c7a54c54b6235c98&nacionalidad=V&cedula=8511780",
+        "resultado_api": {
+            "error": false,
+            "error_str": false,
+            "data": {
+                "nacionalidad": "V",
+                "cedula": 8511780,
+                "fecha_nac": "1965-02-10",
+                "rif": "V085117803",
+                "primer_apellido": "MIRELEZ",
+                "segundo_apellido": "SUAREZ",
+                "primer_nombre": "FIDEL",
+                "segundo_nombre": "ANTONIO",
+                "request_date": "2026-07-20T18:14:41.726Z"
+            }
+        },
+        "success": true
     }
 ]
