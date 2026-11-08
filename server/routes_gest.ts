@@ -252,6 +252,49 @@ export function registerDocumentRoutes(app: Express, authenticateToken: any, sto
     res.json({ success: true, downloadAsPdf });
   });
 
+  // Ruta para verificar cédula usando la API Python existente
+  app.post("/api/experticias/verificar-cedula", authenticateToken, async (req: any, res) => {
+    try {
+      const { cedula } = req.body;
+      if (!cedula || !/^\d{5,10}$/.test(cedula.toString().trim())) {
+        return res.status(400).json({ success: false, message: "Cédula inválida. Debe contener entre 5 y 10 dígitos." });
+      }
+      const pythonApiUrl = "http://localhost:8001/consulta-cedula";
+      const response = await fetch(pythonApiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nacionalidad: "V", cedula: cedula.toString().trim() }),
+      });
+      const data: any = await response.json().catch(() => null);
+      if (!response.ok) {
+        return res.status(response.status).json({
+          success: false,
+          message: data?.detail || data?.error || "Error al consultar la cédula.",
+        });
+      }
+
+      if (!data?.success) {
+        return res.status(502).json({
+          success: false,
+          message: data?.error || "La consulta de cédula no devolvió resultados.",
+        });
+      }
+
+      const datosCedula = data?.data?.data ?? data?.data ?? {};
+      if (datosCedula?.error) {
+        return res.status(404).json({
+          success: false,
+          message: datosCedula.error_str || "No se encontraron datos para esa cédula.",
+        });
+      }
+
+      return res.json({ success: true, data: datosCedula });
+    } catch (error: any) {
+      console.error("[verificar-cedula] Error:", error.message);
+      res.status(500).json({ success: false, message: "No se pudo conectar con el servicio de consulta de cédulas." });
+    }
+  });
+
   // Ruta para subir archivos Excel de experticias
   app.post("/api/experticias/upload-archivo", authenticateToken, experticiasUpload.single('archivo'), async (req: any, res) => {
     try {

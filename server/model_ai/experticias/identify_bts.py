@@ -612,7 +612,7 @@ class Exper_Frecuentes:
             df = pd.read_excel(xls, sheet_name=hoja_real, header=None)
 
             # ── FORMATO ANTIGUO (SAR_SCXM): diseño vertical clave/valor ──────────
-            if fmt_mov == 'SAR_SCXM':
+            if fmt_mov.upper() == 'VOZ':
                 datos = {}
                 for _, row in df.iterrows():
                     if len(row) >= 2 and pd.notna(row.iloc[0]):

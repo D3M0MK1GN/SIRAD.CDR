@@ -1628,6 +1628,53 @@ export function ExperticiasForm({
   const tipoExperticiaValue = useWatch({ control: form.control, name: "tipoExperticia" });
 
   const [sujetoEncontrado, setSujetoEncontrado] = useState<boolean | null>(null);
+  const [verificandoCedula, setVerificandoCedula] = useState(false);
+
+  const verificarCedulaExterna = async () => {
+    const cedula = afiliadoData.cedula?.trim();
+    if (!cedula || cedula.length < 5) return;
+    setVerificandoCedula(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/experticias/verificar-cedula", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ cedula }),
+      });
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        toast({ title: "Sin resultados", description: result.message || "No se encontró información para esa cédula.", variant: "destructive" });
+        return;
+      }
+      // El backend entrega los datos externos ya normalizados.
+      const d = result.data ?? {};
+      const primerNombre   = d.primer_nombre   || d.nombre   || "";
+      const segundoNombre  = d.segundo_nombre  || "";
+      const primerApellido = d.primer_apellido || d.apellido || "";
+      const segundoApellido = d.segundo_apellido || "";
+      const nombre   = [primerNombre, segundoNombre].filter(Boolean).join(" ").trim();
+      const apellido = [primerApellido, segundoApellido].filter(Boolean).join(" ").trim();
+      const fechaRaw = d.fecha_nac || d.fecha_nacimiento || "";
+      let fechaFmt = fechaRaw;
+      if (fechaRaw && /^\d{4}-\d{2}-\d{2}$/.test(fechaRaw)) {
+        const [y, m, day] = fechaRaw.split("-");
+        fechaFmt = `${day}/${m}/${y}`;
+      }
+      const direccion = d.direccion || d.domicilio || "";
+      setAfiliadoData((prev) => ({
+        ...prev,
+        nombre:          nombre   || prev.nombre,
+        apellido:        apellido || prev.apellido,
+        fechaDeNacimiento: fechaFmt || prev.fechaDeNacimiento,
+        direccion:       direccion || prev.direccion,
+      }));
+      toast({ title: "Cédula verificada", description: `Datos cargados: ${nombre} ${apellido}`.trim() });
+    } catch {
+      toast({ title: "Error", description: "No se pudo conectar con el servicio de consulta de cédulas.", variant: "destructive" });
+    } finally {
+      setVerificandoCedula(false);
+    }
+  };
 
   /**
    * Restaura los Datos Afiliados desde el mapa local cuando se selecciona
@@ -2493,7 +2540,24 @@ export function ExperticiasForm({
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Cédula</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Cédula</label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={verificandoCedula || afiliadoData.cedula.length < 5}
+                      onClick={verificarCedulaExterna}
+                      className="h-7 px-2 text-xs"
+                    >
+                      {verificandoCedula ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Search className="h-3 w-3" />
+                      )}
+                      <span className="ml-1">{verificandoCedula ? "..." : "Verificar"}</span>
+                    </Button>
+                  </div>
                   <Input
                     placeholder="Cédula del afiliado"
                     value={afiliadoData.cedula}

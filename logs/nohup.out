@@ -1,0 +1,11 @@
+
+(thunar:32955): GLib-GIO-CRITICAL **: 11:00:36.982: GFileInfo created without standard::size
+
+(thunar:32955): GLib-GIO-CRITICAL **: 11:00:36.982: file ../../../gio/gfileinfo.c: line 1845 (g_file_info_get_size): should not be reached
+thunar-volman: Tipo de dispositivo USB no compatible «usb».
+thunar-volman: Tipo de dispositivo USB no compatible «usb-storage».
+thunar-volman: Tipo de dispositivo de bloques desconocido «disk».
+
+(thunar:32955): GLib-GIO-CRITICAL **: 11:00:46.274: GFileInfo created without standard::size
+
+(thunar:32955): GLib-GIO-CRITICAL **: 11:00:46.274: file ../../../gio/gfileinfo.c: line 1845 (g_file_info_get_size): should not be reached
