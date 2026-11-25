@@ -289,16 +289,21 @@ const TablaContactosFrecuentes = memo(function TablaContactosFrecuentes({ state,
     }
 
     if (state.imeisUtilizados && state.imeisUtilizados.length > 0) {
-      const headers = ['NUMERO ESTUDIADO', 'IMEI', 'CANTIDAD DE USOS'];
+      const headers = ['NUMERO ESTUDIADO', 'IMEI', 'CANTIDAD DE USOS', 'PRIMERA FECHA', 'ULTIMA FECHA', 'PRIMERA HORA', 'ULTIMA HORA'];
       const filas = state.imeisUtilizados
-        .filter((item: any) => {
-          const imeiNum = parseFloat(item.imei);
-          return !isNaN(imeiNum) && imeiNum !== 0;
-        })
-        .map((item: any) => ({
+        // El IMEI llega del backend ya normalizado (14 dígitos, texto). Se trata como
+        // texto: parseFloat/Math.round eliminaban ceros iniciales y descartaban
+        // cualquier valor no numérico.
+        .map((item: any) => ({ item, imei: (item.imei ?? '').toString().trim() }))
+        .filter(({ imei }: { imei: string }) => imei !== '' && !/^0+$/.test(imei))
+        .map(({ item, imei }: { item: any; imei: string }) => ({
           'NUMERO ESTUDIADO': item.numero,
-          'IMEI': Math.round(parseFloat(item.imei)).toString(),
+          'IMEI': imei,
           'CANTIDAD DE USOS': item.cantidad,
+          'PRIMERA FECHA': item.primera_fecha ?? item.PRIMERA_FECHA ?? '',
+          'ULTIMA FECHA': item.ultima_fecha ?? item.ULTIMA_FECHA ?? '',
+          'PRIMERA HORA': item.primera_hora ?? item.PRIMERA_HORA ?? '',
+          'ULTIMA HORA': item.ultima_hora ?? item.ULTIMA_HORA ?? '',
         }));
       if (filas.length > 0) addSheet('IMEI', headers, filas);
     }
@@ -316,10 +321,35 @@ const TablaContactosFrecuentes = memo(function TablaContactosFrecuentes({ state,
 
       const invalidos = new Set(['', '-', 'n/d', 'nan', 'none', 'n/d, n/d', 'nan, nan']);
 
+      // Primer / último registro de una celda. La fecha sale de todos los registros;
+      // la hora, de los registros de esa misma fecha que tengan hora válida ('-' si ninguno).
+      type Extremo = { dia: number; fecha: string; hora: string; seg: number | null };
+      type Extremos = { primera: Extremo | null; ultima: Extremo | null };
+
+      const parseDiaHora = (fecha: string, hora: string): { dia: number; seg: number | null } | null => {
+        const f = fecha.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (!f || Number(f[2]) < 1 || Number(f[2]) > 12 || Number(f[1]) < 1 || Number(f[1]) > 31) return null;
+        const h = hora.match(/^(\d{1,2}):(\d{2}):(\d{2})/);
+        const seg = h && Number(h[1]) < 24 && Number(h[2]) < 60 && Number(h[3]) < 60
+          ? Number(h[1]) * 3600 + Number(h[2]) * 60 + Number(h[3])
+          : null;
+        return { dia: Number(f[3]) * 10000 + Number(f[2]) * 100 + Number(f[1]), seg };
+      };
+
+      const actualizarExtremos = (celda: Extremos, fecha: string, hora: string) => {
+        const p = parseDiaHora(fecha, hora);
+        if (!p) return;
+        const nuevo: Extremo = { dia: p.dia, fecha, hora: p.seg !== null ? hora : '-', seg: p.seg };
+        const a = celda.primera;
+        if (!a || p.dia < a.dia || (p.dia === a.dia && p.seg !== null && (a.seg === null || p.seg < a.seg))) celda.primera = nuevo;
+        const u = celda.ultima;
+        if (!u || p.dia > u.dia || (p.dia === u.dia && p.seg !== null && (u.seg === null || p.seg > u.seg))) celda.ultima = nuevo;
+      };
+
       const antenaMap = new Map<string, {
         totalFisica: number;
         coordenadas: string;
-        celdas: Map<string, { frecuencia: number; direccion: string; orientacion: string }>;
+        celdas: Map<string, { frecuencia: number; direccion: string; orientacion: string } & Extremos>;
       }>();
 
       for (const row of state.datosCrudos) {
@@ -357,14 +387,16 @@ const TablaContactosFrecuentes = memo(function TablaContactosFrecuentes({ state,
         antena.totalFisica++;
         if (btsCelda) {
           if (!antena.celdas.has(btsCelda)) {
-            antena.celdas.set(btsCelda, { frecuencia: 0, direccion, orientacion });
+            antena.celdas.set(btsCelda, { frecuencia: 0, direccion, orientacion, primera: null, ultima: null });
           }
-          antena.celdas.get(btsCelda)!.frecuencia++;
+          const celdaActual = antena.celdas.get(btsCelda)!;
+          celdaActual.frecuencia++;
+          actualizarExtremos(celdaActual, (row['Fecha'] ?? '').toString().trim(), (row['Hora'] ?? '').toString().trim());
         }
       }
 
       if (antenaMap.size > 0) {
-        const geoHeaders = ['Frec. Total Física', 'Frec. por Celda', 'BTS-Celda', 'Dirección', 'Coordenadas (Lat, Lon)', 'Orientación'];
+        const geoHeaders = ['Frec. Total Física', 'Frec. por Celda', 'BTS-Celda', 'Dirección', 'Coordenadas (Lat, Lon)', 'Orientación', 'Primera Fecha', 'Primera Hora', 'Última Fecha', 'Última Hora'];
         const filasGeo: Record<string, any>[] = [];
         const antenasSorted = [...antenaMap.entries()].sort((a, b) => b[1].totalFisica - a[1].totalFisica);
 
@@ -379,6 +411,10 @@ const TablaContactosFrecuentes = memo(function TablaContactosFrecuentes({ state,
               'Dirección': celda.direccion,
               'Coordenadas (Lat, Lon)': antena.coordenadas,
               'Orientación': celda.orientacion,
+              'Primera Fecha': celda.primera?.fecha ?? '-',
+              'Primera Hora': celda.primera?.hora ?? '-',
+              'Última Fecha': celda.ultima?.fecha ?? '-',
+              'Última Hora': celda.ultima?.hora ?? '-',
             });
             primera = false;
           }

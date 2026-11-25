@@ -1,8 +1,168 @@
 import re
+from datetime import date, datetime
+
 import pandas as pd
 from tabulate import tabulate
 from collections import defaultdict
 import numpy as np
+
+
+def _parsear_fecha_sms_movistar(valor):
+    """Normaliza fechas de SMS Movistar sin inferir mes/día para texto DMY."""
+    if pd.isna(valor):
+        return pd.NaT
+
+    if isinstance(valor, (pd.Timestamp, datetime, date, np.datetime64)):
+        return pd.to_datetime(valor, errors="coerce")
+
+    if isinstance(valor, (int, float, np.integer, np.floating)) and not isinstance(
+        valor, (bool, np.bool_)
+    ):
+        if not np.isfinite(valor):
+            return pd.NaT
+        # Excel almacena algunas fechas como días desde 1899-12-30.
+        return pd.to_datetime(
+            valor, unit="D", origin="1899-12-30", errors="coerce"
+        )
+
+    texto = str(valor).strip()
+    if not texto or texto.lower() in {"nan", "nat", "none"}:
+        return pd.NaT
+
+    formatos = (
+        "%d/%m/%Y",
+        "%d/%m/%Y %H:%M:%S",
+        "%d/%m/%Y %H:%M",
+        "%d-%m-%Y",
+        "%d-%m-%Y %H:%M:%S",
+        "%Y-%m-%d",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S",
+    )
+    for formato in formatos:
+        fecha = pd.to_datetime(texto, format=formato, errors="coerce")
+        if not pd.isna(fecha):
+            return fecha
+
+    return pd.NaT
+
+
+def normalizar_numero(numero):
+    """Elimina el 0 inicial (prefijo nacional) y el prefijo internacional 58 si existe.
+    Convierte prefijos internos de red Movilnet (199→426, 158→416).
+    Versión escalar: se usa para el número objetivo (un solo valor)."""
+    s = str(numero).strip()
+    if s.endswith('.0'):
+        s = s[:-2]
+    if s.startswith('199'):
+        s = '426' + s[3:]
+    elif s.startswith('158'):
+        s = '416' + s[3:]
+    if s.startswith('58') and len(s) == 12 and s.isdigit():
+        s = s[2:]
+    if s.startswith('0'):
+        s = s[1:]
+    return s
+
+
+def normalizar_serie_telefonos(serie):
+    """Aplica `normalizar_numero` a una columna completa normalizando solo los
+    valores ÚNICOS y mapeándolos de vuelta. En un CDR los mismos números se
+    repiten miles de veces, así que se hacen muy pocas llamadas a la función
+    y el resultado es idéntico al de la versión escalar por construcción."""
+    serie = serie.astype(str)
+    mapa = {valor: normalizar_numero(valor) for valor in serie.unique()}
+    return serie.map(mapa)
+
+
+def normalizar_imei_14(serie):
+    """Deja el IMEI en el formato estándar de la aplicación: 14 dígitos, como texto.
+
+    Los operadores lo entregan distinto:
+      - Movistar: 14 dígitos.
+      - Movilnet: 15 dígitos (el último es el dígito verificador).
+      - Digitel:  15 dígitos (el último es siempre un 0 de relleno).
+    El dígito 15 se calcula a partir de los 14 primeros, así que no identifica
+    al equipo: se descarta para que los tres operadores sean comparables.
+
+    Reglas:
+      - Quita espacios, guiones y el '.0' final (pandas lee como decimal una
+        columna con celdas vacías o unida con otra hoja sin IMEI).
+      - 14, 15 o 16 dígitos numéricos (16 = IMEISV) -> primeros 14 dígitos.
+      - Vacío, nan, none, '-' o solo ceros ('0', '000000000000000') -> '' (sin IMEI).
+      - Cualquier otro formato (letras, menos de 14 dígitos) se deja sin modificar.
+    """
+    # Un CDR repite los mismos pocos IMEIs miles de veces: se normalizan solo los
+    # valores únicos y se mapean de vuelta (mucho más rápido que fila por fila).
+    texto = serie.fillna('').astype(str)
+    unicos = pd.Series(texto.unique(), dtype=object)
+    limpio = (unicos.str.strip()
+                    .str.replace(r'\.0$', '', regex=True))
+    compacto = limpio.str.replace(r'[\s\-]', '', regex=True)
+    es_imei_numerico = compacto.str.fullmatch(r'\d{14,16}')
+    resultado = compacto.str[:14].where(es_imei_numerico, limpio)
+    sin_imei = (resultado.str.lower().isin(['', 'nan', 'none', 'nat', '-'])
+                | resultado.str.fullmatch(r'0+'))
+    resultado = resultado.mask(sin_imei, '')
+    return texto.map(dict(zip(unicos, resultado)))
+
+
+def horas_a_timedelta(serie):
+    """Convierte una columna de horas 'HH:MM:SS' en timedelta (NaT si no es válida
+    o si no está entre 00:00:00 y 23:59:59). Se interpretan solo los valores únicos
+    y se mapean de vuelta (mucho más rápido que fila por fila)."""
+    texto = serie.fillna('').astype(str).str.strip()
+    unicos = texto.unique()
+    parseadas = pd.Series(pd.to_timedelta(pd.Series(unicos), errors='coerce').values, index=unicos)
+    parseadas = parseadas.where((parseadas >= pd.Timedelta(0)) & (parseadas < pd.Timedelta(days=1)))
+    return texto.map(parseadas)
+
+
+def formatear_hora(horas):
+    """Serie de timedelta -> 'HH:MM:SS' ('-' si no hay hora)."""
+    return (pd.Timestamp(0) + horas).dt.strftime('%H:%M:%S').fillna('-')
+
+
+def dms_a_decimal(texto):
+    """Convierte coordenadas en grados-minutos-segundos al formato decimal 'lat, lon'.
+
+    Movilnet las entrega como  "Lat. 10° 0' 47.1'' / Lon. 69° 13' 26.8''"  y el resto de
+    la aplicación (georreferenciación) espera decimales como los de Movistar: "10.162617, -68.893914".
+
+    - Sin hemisferio explícito se asume Norte (lat +) y Oeste (lon -), como corresponde a Venezuela.
+      Una 'S' o una 'E' explícitas (como letra suelta) invierten el signo.
+    - Si el texto no tiene exactamente 6 números (grados, minutos y segundos de cada eje) o
+      los valores están fuera de rango, se devuelve SIN modificar. Así un valor que ya viene
+      en decimal, vacío o con otro formato nunca se pierde ni se altera.
+    """
+    texto = str(texto)
+    numeros = re.findall(r'\d+(?:\.\d+)?', texto)
+    if len(numeros) != 6:
+        return texto
+    lat_g, lat_m, lat_s, lon_g, lon_m, lon_s = (float(n) for n in numeros)
+    if lat_g > 90 or lon_g > 180 or lat_m >= 60 or lon_m >= 60 or lat_s >= 60 or lon_s >= 60:
+        return texto
+    lat = lat_g + lat_m / 60 + lat_s / 3600
+    lon = lon_g + lon_m / 60 + lon_s / 3600
+    if re.search(r'(?<![A-Za-z])S(?![A-Za-z])', texto):
+        lat = -lat
+    lon = lon if re.search(r'(?<![A-Za-z])E(?![A-Za-z])', texto) else -lon
+    return f"{lat:.6f}, {lon:.6f}"
+
+
+def convertir_coordenadas_dms(serie):
+    """Aplica `dms_a_decimal` a una columna. Convierte solo los valores únicos (hay muy pocas
+    antenas distintas y miles de filas) y los mapea de vuelta."""
+    serie = serie.fillna('').astype(str)
+    return serie.map({valor: dms_a_decimal(valor) for valor in serie.unique()})
+
+
+def _serie_o_vacia(df, columna):
+    """df[columna] si existe; si no, una serie vacía ('') con el mismo índice."""
+    if columna in df.columns:
+        return df[columna]
+    return pd.Series('', index=df.index)
+
 
 class Exper_Frecuentes:
 
@@ -296,8 +456,24 @@ class Exper_Frecuentes:
                     # Renombrar CANT_CARACTERES a DURACION para unificar estructura
                     if 'CANT_CARACTERES' in datos_sms.columns:
                         datos_sms = datos_sms.rename(columns={'CANT_CARACTERES': 'DURACION'})
-                    # Parsear fechas SMS como datetime (sin convertir a string todavía)
-                    datos_sms['FECHA'] = pd.to_datetime(datos_sms['FECHA'], errors='coerce')
+                    # Parsear fechas SMS sin inferencia mes/día y reportar valores inválidos.
+                    fecha_original = datos_sms['FECHA']
+                    fechas_parseadas = fecha_original.map(_parsear_fecha_sms_movistar)
+                    texto_fecha = fecha_original.astype(str).str.strip().str.lower()
+                    tiene_valor = fecha_original.notna() & ~texto_fecha.isin(
+                        {'', 'nan', 'nat', 'none'}
+                    )
+                    fechas_invalidas = tiene_valor & fechas_parseadas.isna()
+                    if fechas_invalidas.any():
+                        filas_excel = [
+                            int(indice) + int(conf['salto']) + 2
+                            for indice in datos_sms.index[fechas_invalidas][:10]
+                        ]
+                        print(
+                            f"[DEBUG BTS] Movistar: {int(fechas_invalidas.sum())} "
+                            f"fechas SMS no reconocidas; filas Excel (muestra): {filas_excel}"
+                        )
+                    datos_sms['FECHA'] = fechas_parseadas
                     # Combinar VOZ + SMS en un único DataFrame
                     datos = pd.concat([datos, datos_sms], ignore_index=True)
                     print(f"[DEBUG BTS] Hoja SMS cargada y combinada. Total filas: {len(datos)}")
@@ -326,21 +502,6 @@ class Exper_Frecuentes:
                 # Convierte a string, quita el .0 al final y espacios
                 return serie.astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
 
-            def normalizar_numero(numero):
-                """Elimina el 0 inicial (prefijo nacional) y el prefijo internacional 58 si existe. Convierte prefijos internos de red Movilnet (199→426, 158→416)."""
-                s = str(numero).strip()
-                if s.endswith('.0'):
-                    s = s[:-2]
-                if s.startswith('199'):
-                    s = '426' + s[3:]
-                elif s.startswith('158'):
-                    s = '416' + s[3:]
-                if s.startswith('58') and len(s) == 12 and s.isdigit():
-                    s = s[2:]
-                if s.startswith('0'):
-                    s = s[1:]
-                return s
-
             col_a = conf['A'].upper()
             col_b = conf['B'].upper()
 
@@ -361,8 +522,8 @@ class Exper_Frecuentes:
             datos[col_b] = limpiar_telefonos(datos[col_b])
 
             # Columnas normalizadas (sin 0 inicial) para comparación — los originales se conservan
-            datos['_A_NORM'] = datos[col_a].apply(normalizar_numero)
-            datos['_B_NORM'] = datos[col_b].apply(normalizar_numero)
+            datos['_A_NORM'] = normalizar_serie_telefonos(datos[col_a])
+            datos['_B_NORM'] = normalizar_serie_telefonos(datos[col_b])
 
             # Normalizar también el número objetivo buscado
             numero_objetivo_norm = normalizar_numero(numero_objetivo_str)
@@ -451,11 +612,13 @@ class Exper_Frecuentes:
                 if 'DIROUTE' in datos_interes.columns:
                     datos_interes['Dirección A'] = datos_interes['DIROUTE'].fillna('').astype(str).str.replace(r'^nan$', '', regex=True)
                 if 'LAT_LON_IROUTE' in datos_interes.columns:
-                    datos_interes['Coordenadas A'] = datos_interes['LAT_LON_IROUTE'].fillna('').astype(str).str.replace(r'^nan$', '', regex=True)
+                    datos_interes['Coordenadas A'] = convertir_coordenadas_dms(
+                        datos_interes['LAT_LON_IROUTE'].fillna('').astype(str).str.replace(r'^nan$', '', regex=True))
                 if 'DOROUTE' in datos_interes.columns:
                     datos_interes['Dirección B'] = datos_interes['DOROUTE'].fillna('').astype(str).str.replace(r'^nan$', '', regex=True)
                 if 'LAT_LON_OROUTE' in datos_interes.columns:
-                    datos_interes['Coordenadas B'] = datos_interes['LAT_LON_OROUTE'].fillna('').astype(str).str.replace(r'^nan$', '', regex=True)
+                    datos_interes['Coordenadas B'] = convertir_coordenadas_dms(
+                        datos_interes['LAT_LON_OROUTE'].fillna('').astype(str).str.replace(r'^nan$', '', regex=True))
 
             if operador_key == 'MOVILNET':
                 print(f"[MOVILNET] Muestra CONTACTO: {datos_interes['CONTACTO'].head(3).tolist()}")
@@ -528,6 +691,12 @@ class Exper_Frecuentes:
             # 2. Renombramos las columnas del DataFrame de golpe
             datos_finales = datos_interes.rename(columns=mapeo_inverso)
 
+            # IMEI estándar de 14 dígitos también en cada registro (ambos abonados),
+            # para que el IMEI completo de 15 dígitos no salga de esta función.
+            for col_imei in ('IMEI A', 'IMEI B'):
+                if col_imei in datos_finales.columns:
+                    datos_finales[col_imei] = normalizar_imei_14(datos_finales[col_imei])
+
             # 3. Definimos las columnas que queremos en el JSON (exactamente como están en las llaves del mapeo)
             cabeceras_tabla = [
                 'ABONADO A', 'ABONADO B', 'Tipo Transacción', 'Fecha', 'Hora', 'Time',
@@ -548,29 +717,58 @@ class Exper_Frecuentes:
                 imei_a_col = str(conf['mapeo'].get('IMEI A', '')).upper()
                 imei_b_col = str(conf['mapeo'].get('IMEI B', '')).upper()
                 if imei_a_col and imei_b_col:
-                    def get_imei_objetivo(row):
-                        if str(row.get('_A_NORM', '')) == numero_objetivo_norm:
-                            return str(row.get(imei_a_col, '')).strip()
-                        else:
-                            return str(row.get(imei_b_col, '')).strip()
-                    datos_imei = datos_interes.copy()
-                    datos_imei['_IMEI_OBJETIVO'] = datos_imei.apply(get_imei_objetivo, axis=1)
-                    valores_invalidos = {'', 'nan', 'NAN', 'None', 'NONE', 'NaN', '-'}
-                    datos_imei = datos_imei[~datos_imei['_IMEI_OBJETIVO'].isin(valores_invalidos)]
+                    # IMEI del número estudiado: IMEI A si es el abonado A, si no IMEI B.
+                    # Ambos ya normalizados a 14 dígitos (mismo formato en los 3 operadores).
+                    es_objetivo_a = datos_interes['_A_NORM'] == numero_objetivo_norm
+                    imei_a = normalizar_imei_14(_serie_o_vacia(datos_interes, imei_a_col))
+                    imei_b = normalizar_imei_14(_serie_o_vacia(datos_interes, imei_b_col))
+                    datos_imei = pd.DataFrame({
+                        '_IMEI_OBJETIVO': imei_a.where(es_objetivo_a, imei_b),
+                        '_FECHA_DT': datos_interes['_FECHA_DT'],
+                        '_HORA_TD': horas_a_timedelta(_serie_o_vacia(datos_interes, 'HORA')),
+                    })
+                    datos_imei = datos_imei[datos_imei['_IMEI_OBJETIVO'] != '']
                     if not datos_imei.empty:
-                        imei_counts = (
+                        imei_stats = (
                             datos_imei.groupby('_IMEI_OBJETIVO')
-                            .size()
-                            .reset_index(name='cantidad')
+                            .agg(
+                                cantidad=('_IMEI_OBJETIVO', 'size'),
+                                primera_f=('_FECHA_DT', 'min'),
+                                ultima_f=('_FECHA_DT', 'max'),
+                            )
+                            .reset_index()
                             .sort_values('cantidad', ascending=False)
                         )
+                        # Hora del primer / último uso: la de los registros de esa misma fecha
+                        # (ignorando los que no tengan hora válida). La fecha no cambia.
+                        por_imei = imei_stats.set_index('_IMEI_OBJETIVO')
+                        en_primera = datos_imei['_FECHA_DT'] == datos_imei['_IMEI_OBJETIVO'].map(por_imei['primera_f'])
+                        en_ultima = datos_imei['_FECHA_DT'] == datos_imei['_IMEI_OBJETIVO'].map(por_imei['ultima_f'])
+                        primera_h = datos_imei[en_primera].groupby('_IMEI_OBJETIVO')['_HORA_TD'].min()
+                        ultima_h = datos_imei[en_ultima].groupby('_IMEI_OBJETIVO')['_HORA_TD'].max()
+                        # Formato: fecha dd/mm/aaaa y hora HH:MM:SS ('-' si no hay dato)
+                        imei_stats['primera_fecha'] = imei_stats['primera_f'].dt.strftime('%d/%m/%Y').fillna('-')
+                        imei_stats['ultima_fecha'] = imei_stats['ultima_f'].dt.strftime('%d/%m/%Y').fillna('-')
+                        imei_stats['primera_hora'] = formatear_hora(imei_stats['_IMEI_OBJETIVO'].map(primera_h))
+                        imei_stats['ultima_hora'] = formatear_hora(imei_stats['_IMEI_OBJETIVO'].map(ultima_h))
                         imeis_utilizados = [
                             {
                                 'numero': numero_objetivo_str,
-                                'imei': str(row['_IMEI_OBJETIVO']),
-                                'cantidad': int(row['cantidad'])
+                                'imei': str(imei),
+                                'cantidad': int(cantidad),
+                                'primera_fecha': primera_f,
+                                'primera_hora': primera_h_txt,
+                                'ultima_fecha': ultima_f,
+                                'ultima_hora': ultima_h_txt,
                             }
-                            for _, row in imei_counts.iterrows()
+                            for imei, cantidad, primera_f, primera_h_txt, ultima_f, ultima_h_txt in zip(
+                                imei_stats['_IMEI_OBJETIVO'],
+                                imei_stats['cantidad'],
+                                imei_stats['primera_fecha'],
+                                imei_stats['primera_hora'],
+                                imei_stats['ultima_fecha'],
+                                imei_stats['ultima_hora'],
+                            )
                         ]
                 print(f"[IMEI] IMEIs extraídos para {numero_objetivo_str}: {len(imeis_utilizados)}")
             except Exception as e_imei:
